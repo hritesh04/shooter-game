@@ -14,7 +14,7 @@ import (
 
 const (
 	windowWidth  = 1080
-	windowHeight = 720
+	windowHeight = 600
 
 	frameOX     = 0
 	frameOY     = 32
@@ -33,8 +33,9 @@ var (
 )
 
 type layer struct {
-	tileID int
-	rotate float64
+	tileID    int
+	rotate    float64
+	translate [2]float64
 }
 
 type Game struct {
@@ -86,7 +87,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			op := &ebiten.DrawImageOptions{}
 			op.GeoM.Scale(g.scale, g.scale)
 			op.GeoM.Rotate(tile.rotate * math.Pi / 180.0)
-			op.GeoM.Translate(float64(x*scaledTileSize), float64(y*scaledTileSize))
+			op.GeoM.Translate((float64(x)-tile.translate[0])*float64(scaledTileSize), float64(y)-tile.translate[1]*float64(scaledTileSize))
 			sx := (tile.tileID % tileXCount) * tileSize
 			sy := (tile.tileID / tileXCount) * tileSize
 			screen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSize, sy+tileSize)).(*ebiten.Image), op)
@@ -114,8 +115,35 @@ func main() {
 	g := &Game{
 		scale: 1.0,
 		screen: [][]layer{
-			{{tileID: 9, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 10, rotate: 0}, {tileID: 9, rotate: 90.0}},
-			{{tileID: 82, rotate: 0}},
+			{{tileID: 9, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}}, {tileID: 9, rotate: 90.0, translate: [2]float64{0.0, 0.0}}},
+			{
+				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -1.0}}, {tileID: 82, rotate: 0, translate: [2]float64{-18.32, -1.0}},
+			},
+			{
+				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -2.0}}, {tileID: 82, rotate: 0, translate: [2]float64{-18.32, -2.0}},
+			},
+			{
+				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -3.0}}, {tileID: 82, rotate: 0, translate: [2]float64{-18.32, -3.0}},
+			},
+			{
+				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -4.0}}, {tileID: 82, rotate: 0, translate: [2]float64{-18.32, -4.0}},
+			},
+			{
+				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -5.0}}, {tileID: 82, rotate: 0, translate: [2]float64{-18.32, -5.0}},
+			},
+			{
+				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -6.0}}, {tileID: 82, rotate: 0, translate: [2]float64{-18.32, -6.0}},
+			},
+			{
+				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -7.0}}, {tileID: 82, rotate: 0, translate: [2]float64{-18.32, -7.0}},
+			},
+			{
+				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -8.0}}, {tileID: 82, rotate: 0, translate: [2]float64{-18.32, -8.0}},
+			},
+			{
+				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -9.0}}, {tileID: 82, rotate: 0, translate: [2]float64{-18.32, -9.0}},
+			},
+			{{tileID: 9, rotate: -90, translate: [2]float64{0.0, -11.0}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}}, {tileID: 9, rotate: 180.0, translate: [2]float64{0.0, -11.0}}},
 		},
 	}
 
