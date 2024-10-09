@@ -1,0 +1,44 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "default_map.json",
+    "expandedProjectPaths": [
+        "."
+    ],
+    "fileStates": {
+        "Dungeon tileset.tsx": {
+            "scaleInDock": 1.5,
+            "scaleInEditor": 1
+        },
+        "default_map.json": {
+            "scale": 1.7634374999999998,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 262.555378344852,
+                "y": 243.558390926812
+            }
+        }
+    },
+    "last.imagePath": "/home/acerowl/Downloads/Dungeon tileset",
+    "map.height": 30,
+    "map.lastUsedFormat": "json",
+    "map.tileHeight": 16,
+    "map.tileWidth": 16,
+    "map.width": 30,
+    "openFiles": [
+        "Dungeon tileset.tsx",
+        "default_map.json"
+    ],
+    "project": "default_map.tiled-project",
+    "recentFiles": [
+        "Dungeon tileset.tsx",
+        "default_map.json"
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.tileSize": {
+        "height": 16,
+        "width": 16
+    }
+}

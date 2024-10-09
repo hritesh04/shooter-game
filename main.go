@@ -5,26 +5,19 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
-	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/hritesh04/shooter-game/entities/player"
+	"github.com/hritesh04/shooter-game/maps"
+	input "github.com/quasilyte/ebitengine-input"
+	"github.com/solarlune/resolv"
 )
 
 const (
-	windowWidth  = 1080
-	windowHeight = 600
-
-	frameOX     = 0
-	frameOY     = 32
-	frameWidth  = 32
-	frameHeight = 32
-	frameCount  = 8
-
-	tileSize  = 128
-	mapWidth  = 20
-	mapHeight = 20
+	windowWidth  = 860
+	windowHeight = 860
 )
 
 var (
@@ -32,341 +25,130 @@ var (
 	tilesImage  *ebiten.Image
 )
 
-type layer struct {
-	tileID    int
-	rotate    float64
-	translate [2]float64
-}
-
 type Game struct {
-	count  int
-	scale  float64
-	screen [][]layer
+	count         int
+	player        *player.Player
+	inputSystem   input.System
+	scale         float64
+	tiledMap      *maps.TiledMapJSON
+	tileMapImage  *ebiten.Image
+	obstacleSpace *resolv.Space
 }
 
 func init() {
 	var err error
-	tilesImage, _, err = ebitenutil.NewImageFromFile("./assets/mapSheet.png")
+	tilesImage, _, err = ebitenutil.NewImageFromFile("assets/mapSheet.png")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	playerImage, _, err = ebitenutil.NewImageFromFile("./assets/runner.png")
+	playerImage, _, err = ebitenutil.NewImageFromFile("assets/runner.png")
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
 func (g *Game) Update() error {
-	g.count++
-	if inpututil.IsKeyJustReleased(ebiten.KeyEscape) {
-		fullscreen := !ebiten.IsFullscreen()
-		ebiten.SetFullscreen(fullscreen)
-		g.updateScale()
+	playerObj := g.player.Src
+	moved := false
+
+	if g.player.Input.ActionIsPressed(player.ActionMoveLeft) {
+		if collision := playerObj.Check(-2, 0, "obstacle"); collision == nil {
+			playerObj.Position.X -= 2
+			moved = true
+		}
 	}
-	return nil
-}
-
-func (g *Game) updateScale() {
-	if ebiten.IsFullscreen() {
-		w, _ := ebiten.Monitor().Size()
-		g.scale = float64(w) / float64(mapWidth*tileSize)
-	} else {
-		g.scale = float64(windowWidth) / float64(mapWidth*tileSize)
+	if g.player.Input.ActionIsPressed(player.ActionMoveRight) {
+		if collision := playerObj.Check(2, 0, "obstacle"); collision == nil {
+			playerObj.Position.X += 2
+			moved = true
+		}
 	}
-}
-
-func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(color.RGBA{0, 0, 0, 0})
-	// Draw the layer
-	tileXCount := tilesImage.Bounds().Dx() / tileSize
-	scaledTileSize := int(float64(tileSize) * g.scale)
-
-	for y, row := range g.screen {
-		for x, tile := range row {
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Scale(g.scale, g.scale)
-			op.GeoM.Rotate(tile.rotate * math.Pi / 180.0)
-			op.GeoM.Translate((float64(x)-tile.translate[0])*float64(scaledTileSize), float64(y)-tile.translate[1]*float64(scaledTileSize))
-			sx := (tile.tileID % tileXCount) * tileSize
-			sy := (tile.tileID / tileXCount) * tileSize
-			screen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSize, sy+tileSize)).(*ebiten.Image), op)
+	if g.player.Input.ActionIsPressed(player.ActionMoveUp) {
+		if collision := playerObj.Check(0, -2, "obstacle"); collision == nil {
+			playerObj.Position.Y -= 2
+			moved = true
+		}
+	}
+	if g.player.Input.ActionIsPressed(player.ActionMoveDown) {
+		if collision := playerObj.Check(0, 2, "obstacle"); collision == nil {
+			playerObj.Position.Y += 2
+			moved = true
 		}
 	}
 
-	// Draw the player
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(g.scale*4, g.scale*4)
-	op.GeoM.Translate(float64(windowWidth/2-frameWidth)*g.scale, float64(windowHeight/2-frameHeight)*g.scale)
-	i := (g.count / 5) % frameCount
-	sx, sy := frameOX+i*frameWidth, frameOY
-	screen.DrawImage(playerImage.SubImage(image.Rect(sx, sy, sx+frameWidth, sy+frameHeight)).(*ebiten.Image), op)
+	if moved {
+		playerObj.Update()
+	}
+
+	return nil
+}
+
+func (g *Game) Draw(screen *ebiten.Image) {
+	opts := ebiten.DrawImageOptions{}
+
+	for _, layer := range g.tiledMap.Layers {
+		for index, id := range layer.Data {
+			if id == 0 {
+				continue // Skip empty tiles
+			}
+
+			x := float64((index % layer.Width) * 16)
+			y := float64((index / layer.Width) * 16)
+
+			srcX := ((id - 1) % 12) * 16
+			srcY := ((id - 1) / 24) * 16
+
+			opts.GeoM.Reset()
+			opts.GeoM.Scale(g.scale, g.scale)
+			opts.GeoM.Translate(x*g.scale, y*g.scale)
+			screen.DrawImage(g.tileMapImage.SubImage(image.Rect(srcX, srcY, srcX+16, srcY+16)).(*ebiten.Image), &opts)
+
+			if layer.Name == "obstacle" {
+				obstacle := resolv.NewObject(x*g.scale, y*g.scale, 10*g.scale, 10*g.scale, "obstacle")
+				g.obstacleSpace.Add(obstacle)
+			}
+		}
+	}
+
+	g.player.Draw(screen)
+
+	objs := g.obstacleSpace.Objects()
+	for _, obj := range objs {
+		if obj.HasTags("obstacle") {
+			vector.DrawFilledRect(screen, float32(obj.Position.X), float32(obj.Position.Y), float32(obj.Size.X), float32(obj.Size.Y), color.RGBA{0, 0, 255, 128}, true)
+		}
+		if obj.HasTags("player") {
+			vector.DrawFilledRect(screen, float32(obj.Position.X), float32(obj.Position.Y), float32(obj.Size.X), float32(obj.Size.Y), color.RGBA{0, 0, 255, 128}, true)
+		}
+	}
 
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	if ebiten.IsFullscreen() {
-		return ebiten.Monitor().Size()
-	}
 	return windowWidth, windowHeight
 }
 
 func main() {
-	g := &Game{
-		scale: 1.0,
-		screen: [][]layer{
-			{
-				{tileID: 9, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 9, rotate: 90.0, translate: [2]float64{-1.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 9, rotate: 90.0, translate: [2]float64{-1.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 9, rotate: 0, translate: [2]float64{0.0, 0.0}},
-				{tileID: 9, rotate: 90.0, translate: [2]float64{-1.0, 0.0}},
-			},
-			{
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -1.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -1.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -1.0}},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -1.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -1.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -1.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -1.0}},
-			},
-			{
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -2.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -2.0}},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -2.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -2.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -2.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -2.0}},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -2.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -2.0}},
-			},
-			{
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -3.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -3.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -3.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.32, -3.0}},
-			},
-			{
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -4.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -4.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.0, -4.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -4.0}},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -4.0}},
-				{tileID: 256},
-				{tileID: 256},
-				// {tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.0, -4.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -4.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.32, -4.0}},
-			},
-			{
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -5.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.0, -5.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.0, -5.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -5.0}},
-			},
-			{
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -6.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -6.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.0, -6.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -6.0}},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -6.0}},
-				{tileID: 256},
-				{tileID: 256},
-				// {tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.0, -6.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -6.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.32, -6.0}},
-			},
-			{
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -7.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -7.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -7.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.32, -7.0}},
-			},
-			{
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -8.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -8.0}},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -8.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -8.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -8.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -8.0}},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -8.0}},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -8.0}},
-			},
-			{
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -9.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -9.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -9.0}},
-				{tileID: 256},
-				// {tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -9.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -9.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{0.3, -9.0}},
-				{tileID: 256},
-				{tileID: 256},
-				{tileID: 82, rotate: 0, translate: [2]float64{-0.3, -9.0}},
-			},
-			{
-				{tileID: 9, rotate: -90, translate: [2]float64{0.0, -11.0}},
-				{tileID: 9, rotate: 180.0, translate: [2]float64{-1.0, -11.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 9, rotate: 180.0, translate: [2]float64{-1.0, -11.0}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 10, rotate: 0, translate: [2]float64{0.0, -10.62}},
-				{tileID: 9, rotate: -90.0, translate: [2]float64{0.0, -11.0}},
-				{tileID: 9, rotate: 180.0, translate: [2]float64{-1.0, -11.0}},
-			},
-		},
+	gameMap, err := maps.NewMap(maps.DefaultMap)
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	ebiten.SetFullscreen(true)
+	mapImage, _, err := ebitenutil.NewImageFromFile("assets/dungeonSheet.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+	g := &Game{
+		scale:         1.8,
+		tiledMap:      gameMap,
+		tileMapImage:  mapImage,
+		obstacleSpace: resolv.NewSpace(windowWidth, windowHeight, 16, 16),
+	}
+	g.player = player.NewPlayer(g.obstacleSpace, playerImage)
+	g.inputSystem.Init(input.SystemConfig{DevicesEnabled: input.AnyDevice})
+	g.player.Input = g.inputSystem.NewHandler(0, player.Keymap)
 	ebiten.SetWindowTitle("Shooter")
 	ebiten.SetWindowSize(windowWidth, windowHeight)
-	g.updateScale()
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
 	}
