@@ -27,10 +27,12 @@ type Player struct {
 	Keymap input.Keymap
 	Image  *ebiten.Image
 	Src    *resolv.Object
+	// Gun
 }
 
 func NewPlayer(space *resolv.Space, playerImage *ebiten.Image) *Player {
-	player := resolv.NewObject(25*1.8, 50*1.8, 32, 32, "player")
+	// player := resolv.NewObject(25*1.8, 50*1.8, 30, 48, "player")
+	player := resolv.NewObject(25, 50, 16, 16, "player")
 	space.Add(player)
 	return &Player{
 		Src:   player,
@@ -57,5 +59,5 @@ func (p *Player) Draw(screen *ebiten.Image) {
 	opts := ebiten.DrawImageOptions{}
 	opts.GeoM.Scale(1.8, 1.8)
 	opts.GeoM.Translate(float64(p.Src.Position.X), float64(p.Src.Position.Y))
-	screen.DrawImage(p.Image.SubImage(image.Rect(0, 0, 32, 32)).(*ebiten.Image), &opts)
+	screen.DrawImage(p.Image.SubImage(image.Rect(8, 5, 32, 32)).(*ebiten.Image), &opts)
 }

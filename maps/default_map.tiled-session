@@ -13,11 +13,11 @@
             "scaleInEditor": 1
         },
         "default_map.json": {
-            "scale": 1.7634374999999998,
-            "selectedLayer": 1,
+            "scale": 1,
+            "selectedLayer": 0,
             "viewCenter": {
-                "x": 262.555378344852,
-                "y": 243.558390926812
+                "x": 307.5,
+                "y": 211
             }
         }
     },
