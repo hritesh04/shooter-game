@@ -47,9 +47,9 @@ func NewPlayer(index int, space *resolv.Space) *Player {
 	}
 	var player *resolv.Object
 	if index == 0 {
-		player = resolv.NewObject(60, 70, 26, 32, "player")
+		player = resolv.NewObject(60, 70, 20, 28, "player")
 	} else {
-		player = resolv.NewObject(16*36*2+20, 16*19*2, 32, 32, "player")
+		player = resolv.NewObject(16*36*2+20, 16*19*2, 20, 28, "player")
 	}
 	space.Add(player)
 	return &Player{
@@ -123,10 +123,15 @@ func (p *Player) Update() {
 
 func (p *Player) Draw(screen *ebiten.Image) {
 	opts := ebiten.DrawImageOptions{}
-	opts.GeoM.Scale(1.8, 1.8)
-	opts.GeoM.Translate(float64(p.Src.Position.X), float64(p.Src.Position.Y-10))
+	if p.Dir == types.Left {
+		opts.GeoM.Scale(-1.8, 1.8)
+		opts.GeoM.Translate(float64(p.Src.Position.X+21), float64(p.Src.Position.Y-10))
+	} else {
+		opts.GeoM.Scale(1.8, 1.8)
+		opts.GeoM.Translate(float64(p.Src.Position.X), float64(p.Src.Position.Y-10))
+	}
 	screen.DrawImage(p.Image.SubImage(image.Rect(8, 5, 32, 32)).(*ebiten.Image), &opts)
-	p.Weapon.Draw(screen, p.Src.Position)
+	p.Weapon.Draw(screen, p.Src.Position, p.Dir)
 	// debug code
 	// vector.DrawFilledRect(screen, float32(p.Src.Position.X), float32(p.Src.Position.Y), float32(p.Src.Size.X), float32(p.Src.Size.Y), color.RGBA{0, 0, 255, 128}, true)
 }
