@@ -103,9 +103,6 @@ func (w *Weapon) Update() {
 		}
 		bullet.Position.Y += 0.2
 		bullet.Update()
-		// sleep for 1 frame
-		// time.Sleep(time.Second / 120)
-		// }
 	}
 }
 func (w *Weapon) RemoveBullet(bullet *resolv.Object) {
@@ -117,10 +114,15 @@ func (w *Weapon) RemoveBullet(bullet *resolv.Object) {
 	}
 }
 
-func (w *Weapon) Draw(screen *ebiten.Image, location resolv.Vector) {
+func (w *Weapon) Draw(screen *ebiten.Image, location resolv.Vector, dir types.Direction) {
 	opts := ebiten.DrawImageOptions{}
-	opts.GeoM.Scale(0.7, 0.7)
-	opts.GeoM.Translate(location.X, location.Y)
+	if dir == types.Left {
+		opts.GeoM.Scale(-0.7, 0.7)
+		opts.GeoM.Translate(location.X+20, location.Y)
+	} else {
+		opts.GeoM.Scale(0.7, 0.7)
+		opts.GeoM.Translate(location.X, location.Y)
+	}
 	screen.DrawImage(w.Image.SubImage(image.Rect(0, 0, 64, 64)).(*ebiten.Image), &opts)
 
 	for _, bullet := range w.obstacles {
@@ -129,6 +131,7 @@ func (w *Weapon) Draw(screen *ebiten.Image, location resolv.Vector) {
 		opts.GeoM.Translate(bullet.Position.X+5, bullet.Position.Y+2)
 		screen.DrawImage(w.Bullet.SubImage(image.Rect(0, 0, 64, 64)).(*ebiten.Image), &opts)
 	}
+	opts.GeoM.Reset()
 	// debug code
 	// vector.DrawFilledRect(screen, float32(bullet.Position.X), float32(bullet.Position.Y), 16, 16, color.RGBA{0, 0, 255, 128}, true)
 }
