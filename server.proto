@@ -1,0 +1,13 @@
+syntax="proto3";
+
+option go_package="./";
+
+package serverrpc;
+
+service MovementEmitter {
+    rpc SendMove(stream Movement) returns (stream Movement) {}
+}
+
+message Movement {
+    string move = 1;
+}

@@ -67,6 +67,7 @@ func (p *Player) Init() {
 }
 
 func (p *Player) Update() {
+	// p.Input.EmitKeyEvent(input.SimulatedKeyEvent{})
 	playerObj := p.Src
 	moved := false
 
