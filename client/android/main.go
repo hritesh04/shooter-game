@@ -2,10 +2,11 @@ package main
 
 import (
 	_ "image/png"
-	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/mobile"
+	"github.com/hritesh04/shooter-game/client"
 	maps "github.com/hritesh04/shooter-game/maps"
 	"github.com/hritesh04/shooter-game/types"
 )
@@ -45,7 +46,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func main() {
-	g := &Game{
+	g := &client.Game{
 		Width:  windowWidth,
 		Height: windowHeight,
 		Scale:  1.8,
@@ -55,7 +56,8 @@ func main() {
 	ebiten.SetWindowSize(windowWidth, windowHeight)
 	ebiten.SetFullscreen(true)
 	ebiten.SetTPS(60)
-	if err := ebiten.RunGame(g); err != nil {
-		log.Fatal(err)
-	}
+	mobile.SetGame(g)
 }
+
+// required for SetGame() -> only exports modules with atleast one exported function
+func Dummy() {}

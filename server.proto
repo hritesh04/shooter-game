@@ -4,10 +4,25 @@ option go_package="./";
 
 package serverrpc;
 
-service MovementEmitter {
-    rpc SendMove(stream Movement) returns (stream Movement) {}
+enum Action {
+    Movement =0;
+    Fire=1;
 }
 
-message Movement {
-    string move = 1;
+enum Direction {
+    UP = 0;
+    DOWN =1;
+    LEFT =2;
+    RIGHT=3;
+    SHOOT=4;
+}
+
+service MovementEmitter {
+    rpc SendMove(stream Data) returns (stream Data) {}
+    rpc Fire()
+}
+
+message Data {
+    Action move = 1;
+    Direction direction = 2;
 }
