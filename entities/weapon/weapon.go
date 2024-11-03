@@ -1,6 +1,7 @@
 package weapon
 
 import (
+	"embed"
 	"image"
 	"log"
 
@@ -22,10 +23,10 @@ const (
 
 var (
 	imagePath = map[int]string{
-		Pistol: "assets/pistol/pistol.png",
+		Pistol: "pistol/pistol.png",
 	}
 	bulletPath = map[int]string{
-		Pistol: "assets/pistol/bullet.png",
+		Pistol: "pistol/bullet.png",
 	}
 	keymap = input.Keymap{
 		Fire:   {input.KeyEnter, input.KeySpace},
@@ -42,14 +43,43 @@ type Weapon struct {
 	obstacles []*resolv.Object
 }
 
-func NewWeapon(space *resolv.Space, weaponType int) *Weapon {
-	pistolImage, _, err := ebitenutil.NewImageFromFile(imagePath[weaponType])
-	if err != nil {
-		log.Fatal(err)
-	}
-	bulletImage, _, err := ebitenutil.NewImageFromFile(bulletPath[weaponType])
-	if err != nil {
-		log.Fatal(err)
+func NewWeapon(space *resolv.Space, weaponType int, device types.Device, assets embed.FS) *Weapon {
+	var pistolImage *ebiten.Image
+	var bulletImage *ebiten.Image
+	if device == types.Desktop {
+		gun, err := assets.Open("assets/" + imagePath[weaponType])
+		if err != nil {
+			log.Fatal(err)
+		}
+		pistolImage, _, err = ebitenutil.NewImageFromReader(gun)
+		if err != nil {
+			log.Fatal(err)
+		}
+		bullet, err := assets.Open("assets/" + bulletPath[weaponType])
+		if err != nil {
+			log.Fatal(err)
+		}
+		bulletImage, _, err = ebitenutil.NewImageFromReader(bullet)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else if device == types.Web {
+		gun, err := assets.Open("assets/" + imagePath[weaponType])
+		if err != nil {
+			log.Fatal(err)
+		}
+		pistolImage, _, err = ebitenutil.NewImageFromReader(gun)
+		if err != nil {
+			log.Fatal(err)
+		}
+		bullet, err := assets.Open("assets/" + bulletPath[weaponType])
+		if err != nil {
+			log.Fatal(err)
+		}
+		bulletImage, _, err = ebitenutil.NewImageFromReader(bullet)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	return &Weapon{
 		Image:  pistolImage,
