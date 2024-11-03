@@ -1,6 +1,7 @@
 package player
 
 import (
+	"embed"
 	"image"
 	"log"
 
@@ -40,22 +41,35 @@ type Player struct {
 	Dir    types.Direction
 }
 
-func NewPlayer(index int, space *resolv.Space) *Player {
-	playerImage, _, err := ebitenutil.NewImageFromFile("assets/runner.png")
+func NewPlayer(w float64, h float64, index int, space *resolv.Space, device types.Device, assets embed.FS) *Player {
+	var playerImage *ebiten.Image
+	var err error
+	runner, err := assets.Open("assets/runner.png")
 	if err != nil {
 		log.Fatal(err)
 	}
-	var player *resolv.Object
-	if index == 0 {
-		player = resolv.NewObject(60, 70, 20, 28, "player")
-	} else {
-		player = resolv.NewObject(16*36*2+20, 16*19*2, 20, 28, "player")
+	if device == types.Desktop {
+		playerImage, _, err = ebitenutil.NewImageFromReader(runner)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else if device == types.Web {
+		playerImage, _, err = ebitenutil.NewImageFromReader(runner)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+	// var player *resolv.Object
+	player := resolv.NewObject(w, h, 20, 28, "player")
+	// if index == 0 {
+	// } else {
+	// 	player = resolv.NewObject(16*36*2+20, 16*19*2, 20, 28, "player")
+	// }
 	space.Add(player)
 	return &Player{
 		Src:    player,
 		Image:  playerImage,
-		Weapon: weapon.NewWeapon(space, weapon.Pistol),
+		Weapon: weapon.NewWeapon(space, weapon.Pistol, device, assets),
 	}
 }
 
