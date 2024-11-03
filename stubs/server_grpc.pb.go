@@ -19,14 +19,21 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MovementEmitter_SendMove_FullMethodName = "/serverrpc.MovementEmitter/SendMove"
+	MovementEmitter_SendMove_FullMethodName   = "/serverrpc.MovementEmitter/SendMove"
+	MovementEmitter_CreateRoom_FullMethodName = "/serverrpc.MovementEmitter/CreateRoom"
+	MovementEmitter_JoinRoom_FullMethodName   = "/serverrpc.MovementEmitter/JoinRoom"
 )
 
 // MovementEmitterClient is the client API for MovementEmitter service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MovementEmitterClient interface {
-	SendMove(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Movement, Movement], error)
+	// from client send roomID,name get game events
+	SendMove(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Data, Data], error)
+	// from root to create room
+	CreateRoom(ctx context.Context, in *Room, opts ...grpc.CallOption) (*Player, error)
+	// from client to get name and position
+	JoinRoom(ctx context.Context, in *Room, opts ...grpc.CallOption) (*Room, error)
 }
 
 type movementEmitterClient struct {
@@ -37,24 +44,49 @@ func NewMovementEmitterClient(cc grpc.ClientConnInterface) MovementEmitterClient
 	return &movementEmitterClient{cc}
 }
 
-func (c *movementEmitterClient) SendMove(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Movement, Movement], error) {
+func (c *movementEmitterClient) SendMove(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[Data, Data], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &MovementEmitter_ServiceDesc.Streams[0], MovementEmitter_SendMove_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[Movement, Movement]{ClientStream: stream}
+	x := &grpc.GenericClientStream[Data, Data]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type MovementEmitter_SendMoveClient = grpc.BidiStreamingClient[Movement, Movement]
+type MovementEmitter_SendMoveClient = grpc.BidiStreamingClient[Data, Data]
+
+func (c *movementEmitterClient) CreateRoom(ctx context.Context, in *Room, opts ...grpc.CallOption) (*Player, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Player)
+	err := c.cc.Invoke(ctx, MovementEmitter_CreateRoom_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *movementEmitterClient) JoinRoom(ctx context.Context, in *Room, opts ...grpc.CallOption) (*Room, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Room)
+	err := c.cc.Invoke(ctx, MovementEmitter_JoinRoom_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
 
 // MovementEmitterServer is the server API for MovementEmitter service.
 // All implementations must embed UnimplementedMovementEmitterServer
 // for forward compatibility.
 type MovementEmitterServer interface {
-	SendMove(grpc.BidiStreamingServer[Movement, Movement]) error
+	// from client send roomID,name get game events
+	SendMove(grpc.BidiStreamingServer[Data, Data]) error
+	// from root to create room
+	CreateRoom(context.Context, *Room) (*Player, error)
+	// from client to get name and position
+	JoinRoom(context.Context, *Room) (*Room, error)
 	mustEmbedUnimplementedMovementEmitterServer()
 }
 
@@ -65,8 +97,14 @@ type MovementEmitterServer interface {
 // pointer dereference when methods are called.
 type UnimplementedMovementEmitterServer struct{}
 
-func (UnimplementedMovementEmitterServer) SendMove(grpc.BidiStreamingServer[Movement, Movement]) error {
+func (UnimplementedMovementEmitterServer) SendMove(grpc.BidiStreamingServer[Data, Data]) error {
 	return status.Errorf(codes.Unimplemented, "method SendMove not implemented")
+}
+func (UnimplementedMovementEmitterServer) CreateRoom(context.Context, *Room) (*Player, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateRoom not implemented")
+}
+func (UnimplementedMovementEmitterServer) JoinRoom(context.Context, *Room) (*Room, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method JoinRoom not implemented")
 }
 func (UnimplementedMovementEmitterServer) mustEmbedUnimplementedMovementEmitterServer() {}
 func (UnimplementedMovementEmitterServer) testEmbeddedByValue()                         {}
@@ -90,11 +128,47 @@ func RegisterMovementEmitterServer(s grpc.ServiceRegistrar, srv MovementEmitterS
 }
 
 func _MovementEmitter_SendMove_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(MovementEmitterServer).SendMove(&grpc.GenericServerStream[Movement, Movement]{ServerStream: stream})
+	return srv.(MovementEmitterServer).SendMove(&grpc.GenericServerStream[Data, Data]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type MovementEmitter_SendMoveServer = grpc.BidiStreamingServer[Movement, Movement]
+type MovementEmitter_SendMoveServer = grpc.BidiStreamingServer[Data, Data]
+
+func _MovementEmitter_CreateRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Room)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MovementEmitterServer).CreateRoom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MovementEmitter_CreateRoom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MovementEmitterServer).CreateRoom(ctx, req.(*Room))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MovementEmitter_JoinRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Room)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MovementEmitterServer).JoinRoom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MovementEmitter_JoinRoom_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MovementEmitterServer).JoinRoom(ctx, req.(*Room))
+	}
+	return interceptor(ctx, in, info, handler)
+}
 
 // MovementEmitter_ServiceDesc is the grpc.ServiceDesc for MovementEmitter service.
 // It's only intended for direct use with grpc.RegisterService,
@@ -102,7 +176,16 @@ type MovementEmitter_SendMoveServer = grpc.BidiStreamingServer[Movement, Movemen
 var MovementEmitter_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "serverrpc.MovementEmitter",
 	HandlerType: (*MovementEmitterServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateRoom",
+			Handler:    _MovementEmitter_CreateRoom_Handler,
+		},
+		{
+			MethodName: "JoinRoom",
+			Handler:    _MovementEmitter_JoinRoom_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "SendMove",

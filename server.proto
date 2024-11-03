@@ -7,6 +7,8 @@ package serverrpc;
 enum Action {
     Movement =0;
     Fire=1;
+    Join=2;
+    Info=3;
 }
 
 enum Direction {
@@ -18,11 +20,30 @@ enum Direction {
 }
 
 service MovementEmitter {
+    // from client send roomID,name get game events
     rpc SendMove(stream Data) returns (stream Data) {}
-    rpc Fire()
+    // from root to create room
+    rpc CreateRoom(Room) returns (Player) {}
+    // from client to get name and position
+    rpc JoinRoom(Room) returns (Room) {}
 }
 
 message Data {
-    Action move = 1;
-    Direction direction = 2;
+    Action type = 1;
+    Direction data = 2;
+    string roomID = 3;
+    string name = 4;
+    repeated Player player =5;
+}
+
+message Room {
+    string id = 1;
+    string name = 2;
+    repeated Player player = 3;
+}
+
+message Player {
+    string name = 1;
+    float x = 2;
+    float y = 3;
 }

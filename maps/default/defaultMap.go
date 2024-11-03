@@ -1,19 +1,24 @@
 package new
 
 import (
+	"context"
+	"embed"
 	"encoding/json"
 	"image"
+	"io"
 	"log"
 	"math"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hritesh04/shooter-game/entities/player"
 	"github.com/hritesh04/shooter-game/maps/common"
+	pb "github.com/hritesh04/shooter-game/stubs"
 	"github.com/hritesh04/shooter-game/types"
 	"github.com/solarlune/resolv"
 )
+
+//embed them using file system screenshot
 
 type DefaultMap struct {
 	Game          types.Game
@@ -24,24 +29,38 @@ type DefaultMap struct {
 	Width, Height int
 	Scale         float64
 	TileImage     *ebiten.Image
+	Device        types.Device
+	Assets        embed.FS
+	// Client        pb.MovementEmitterClient
+	Rec    chan *pb.Data
+	Sender chan *pb.Data
 }
 
 func NewDefaultMap(game types.Game) types.IMap {
-	pwd, err := os.Getwd()
+	fs := game.GetFS()
+	file, err := fs.Open("assets/dungeonSheet.png")
 	if err != nil {
 		log.Fatal(err)
 	}
-	mapData, err := os.ReadFile(pwd + "/maps/default/map.json")
+	tileImage, _, err := ebitenutil.NewImageFromReader(file)
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	mapFile, err := fs.ReadFile("assets/map/map.json")
+	if err != nil {
+		log.Fatal(err)
+	}
 	tileMap := &DefaultMap{
-		Game:    game,
-		MapJson: &common.TiledMapJSON{},
+		Game:      game,
+		MapJson:   &common.TiledMapJSON{},
+		Device:    game.GetDevice(),
+		TileImage: tileImage,
+		Assets:    fs,
+		// Client:    game.GetClient(),
+		Rec:    make(chan *pb.Data),
+		Sender: make(chan *pb.Data),
 	}
-
-	if err := json.Unmarshal(mapData, tileMap.MapJson); err != nil {
+	if err := json.Unmarshal(mapFile, tileMap.MapJson); err != nil {
 		log.Fatal(err)
 	}
 
@@ -50,22 +69,28 @@ func NewDefaultMap(game types.Game) types.IMap {
 }
 
 func (m *DefaultMap) Init() {
-	tileImage, _, err := ebitenutil.NewImageFromFile("assets/dungeonSheet.png")
-	if err != nil {
-		log.Fatal(err)
-	}
-	m.TileImage = tileImage
 
 	gw, gh := m.Game.GetSize()
 	cellSize := 16
 
 	m.Space = resolv.NewSpace(int(gw), int(gh), cellSize, cellSize)
 
-	for i := 0; i < 2; i++ {
-		player := player.NewPlayer(i, m.Space)
-		player.Init()
-		m.Players = append(m.Players, player)
-	}
+	// create player
+	// create connection to send moves
+	// pass the send function to player obj
+	// so player mov the mov will be send to the server
+	// go func to get player info to add
+	// for i := 0; i < 2; i++ {
+	// 	if i == 0 {
+	// 		player := player.NewPlayer(60, 70, i, m.Space, m.Device, m.Assets)
+	// 		player.Init()
+	// 		m.Players = append(m.Players, player)
+	// 	} else {
+	// 		player := player.NewPlayer(1172, 608, i, m.Space, m.Device, m.Assets)
+	// 		player.Init()
+	// 		m.Players = append(m.Players, player)
+	// 	}
+	// }
 
 	m.Width = m.MapJson.Layers[0].Width * 16
 	m.Height = len(m.MapJson.Layers[0].Data) / m.MapJson.Layers[0].Width * 16
@@ -93,10 +118,80 @@ func (m *DefaultMap) Init() {
 		m.Obstacles = append(m.Obstacles, obstacle)
 		m.Space.Add(obstacle)
 	}
+	// go m.ListenCommand()
 }
+
+func (m *DefaultMap) ListenCommand(address, ID string) {
+	client := common.NewGrpcClient(address)
+	ctx := context.Background()
+	log.Printf("Backend URL : %s for room %s", address, ID)
+	ctxj := context.Background()
+	join, err := client.JoinRoom(ctxj, &pb.Room{Id: ID})
+	if err != nil {
+		log.Fatalf("error joining room %w", err)
+	}
+	for _, p := range join.GetPlayer() {
+		player := player.NewPlayer(float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets)
+		player.Init()
+		m.Players = append(m.Players, player)
+	}
+	conn, err := client.SendMove(ctx)
+	if err != nil {
+		log.Fatalf("error make function call %v", err)
+	}
+	go func() {
+		// first req from client to join with player name and roomID
+		m.Sender <- &pb.Data{Type: pb.Action_Join, RoomID: ID, Name: join.Name}
+		for {
+			resp, err := conn.Recv()
+			// first res if type info add player if game.player.name != this.name
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("receiving Streaming message: %v", err)
+			}
+			switch resp.Type {
+			case pb.Action_Join:
+				log.Printf("New player joined : %+v", resp.Player)
+				players := resp.GetPlayer()
+				for _, p := range players {
+					player := player.NewPlayer(float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets)
+					player.Init()
+					m.Players = append(m.Players, player)
+				}
+
+			}
+			log.Printf("received data from move :%v", resp)
+			// m.Rec <- resp
+		}
+	}()
+	for {
+		data := <-m.Sender
+		log.Printf("sending data from move :%v", data)
+		err := conn.Send(data)
+		if err == io.EOF {
+			// Bidi streaming RPC errors happen and make Send return io.EOF,
+			// not the RPC error itself.  Call Recv to determine the error.
+			break
+		}
+		if err != nil {
+			// Some local errors are reported this way, e.g. errors serializing
+			// the request message.
+			log.Fatalf("sending Streaming message: %v", err)
+		}
+	}
+	err = conn.CloseSend()
+	if err != nil {
+		log.Fatalf("cannot close send: %w", err)
+	}
+}
+
 func (m *DefaultMap) Update() error {
-	for _, player := range m.Players {
-		player.Update()
+	if len(m.Players) > 0 {
+		for _, player := range m.Players {
+			player.Update()
+		}
 	}
 	return nil
 }
