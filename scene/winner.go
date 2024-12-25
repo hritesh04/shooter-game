@@ -22,8 +22,8 @@ func (w *WinnerScreen) Init() {
 
 }
 
-func (w *WinnerScreen) Update() error {
-	return nil
+func (w *WinnerScreen) Update() int {
+	return types.Winner
 }
 func (w *WinnerScreen) Draw(*ebiten.Image) {
 

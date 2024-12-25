@@ -14,28 +14,36 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hritesh04/shooter-game/entities/player"
-	"github.com/hritesh04/shooter-game/entities/ui"
 	"github.com/hritesh04/shooter-game/maps/common"
+	"github.com/hritesh04/shooter-game/scene/ui"
 	"github.com/hritesh04/shooter-game/types"
 	"github.com/solarlune/resolv"
 )
 
+const (
+	JoinDungeon = iota
+	CreateDungeon
+	Onboarding
+)
+
 type Onboard struct {
-	Width, Height int
-	Index         int
-	SceneStart    bool
-	Game          types.Game
-	Scale         float64
-	TileImage     *ebiten.Image
-	PlayerImage   *ebiten.Image
-	MapJson       *common.TiledMapJSON
-	Player        *player.Player
-	Space         *resolv.Space
-	Scene         []types.IScreen
-	Assets        embed.FS
-	Obstacles     []*resolv.Object
-	Show          chan bool
-	Done          chan bool
+	ID                int
+	Width, Height     int
+	Index             int
+	collisionCoolDown int
+	SceneStart        bool
+	Game              types.Game
+	Scale             float64
+	TileImage         *ebiten.Image
+	PlayerImage       *ebiten.Image
+	MapJson           *common.TiledMapJSON
+	Player            *player.Player
+	Space             *resolv.Space
+	Scene             []types.IScreen
+	Assets            embed.FS
+	Obstacles         []*resolv.Object
+	Show              chan bool
+	Done              chan bool
 	// Client        pb.MovementEmitterClient
 }
 
@@ -61,11 +69,14 @@ func NewOnBoardingScreen(game types.Game, fs embed.FS, show chan bool) *Onboard 
 		log.Fatal(err)
 	}
 	scence := &Onboard{
-		Game:        game,
-		TileImage:   tileImage,
-		PlayerImage: runnerImage,
-		MapJson:     &common.TiledMapJSON{},
-		Assets:      fs,
+		ID:                Onboarding,
+		Game:              game,
+		TileImage:         tileImage,
+		PlayerImage:       runnerImage,
+		MapJson:           &common.TiledMapJSON{},
+		Assets:            fs,
+		Index:             Onboarding,
+		collisionCoolDown: 0,
 		// Client:     game.GetClient(),
 		SceneStart: false,
 		Show:       show,
@@ -160,34 +171,49 @@ func (o *Onboard) Init() {
 	o.Scene = append(o.Scene, ui.NewKeyBoardInput("Enter the dungeon ID\n", tx+tx*0.3, ty-ty*0.3, o.Done, o.JoinRoom), ui.NewKeyBoardInput("Creating a new dungeon", tx+tx*1.3, ty-ty*0.3, o.Done, o.CreateRoom))
 }
 
-func (o *Onboard) Update() error {
-	o.Player.Update()
-	playerObj := o.Player.Src
-	if isScene, scene := checkJoinRoom(playerObj); isScene {
-		o.SceneStart = true
-		o.Index = scene
-	}
-	if o.SceneStart {
-		o.Scene[o.Index].Update()
-		select {
-		case <-o.Done:
-			o.SceneStart = false
-			go func() {
-				// time.Sleep(time.Second * 2)
-				o.Show <- true
-			}()
-		default:
+func (o *Onboard) Update() int {
+	if o.Index == Onboarding {
+		o.Player.Update()
+		fmt.Println("player update", o.Index)
+		fmt.Println("scene started ? ", o.SceneStart)
+
+		if o.collisionCoolDown <= 0 {
+			playerObj := o.Player.Src
+			if isScene, scene := checkJoinRoom(playerObj); isScene {
+				fmt.Println("join scene detected", o.Index)
+				// if o.SceneStart {
+				// 	o.SceneStart = false
+				o.collisionCoolDown = 60
+				// }
+				o.Index = scene
+				return 0
+			}
 		}
+		o.collisionCoolDown--
+	} else {
+		o.Index = o.Scene[o.Index].Update()
+		// if o.Index == Onboarding {
+		// 	o.SceneStart = false
+		// }
 	}
-	return nil
+	// select {
+	// case <-o.Done:
+	// 	o.SceneStart = false
+	// 	go func() {
+	// 		// time.Sleep(time.Second * 2)
+	// 		o.Show <- true
+	// 	}()
+	// default:
+	// }
+	return 0
 }
 
 func checkJoinRoom(player *resolv.Object) (bool, int) {
 	if collision := player.Check(0, -2, "join"); collision != nil {
-		return true, types.JoinDungeon
+		return true, JoinDungeon
 	}
 	if collision := player.Check(0, -2, "create"); collision != nil {
-		return true, types.CreateDungeon
+		return true, CreateDungeon
 	}
 	return false, 0
 }
@@ -326,7 +352,7 @@ func (o *Onboard) Draw(screen *ebiten.Image) {
 		}
 	}
 	o.Player.Draw(screen)
-	if o.SceneStart {
+	if o.Index != Onboarding {
 		o.Scene[o.Index].Draw(screen)
 	}
 	// for _, obj := range o.Obstacles {

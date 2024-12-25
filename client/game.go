@@ -6,8 +6,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/hritesh04/shooter-game/entities/screen"
 	"github.com/hritesh04/shooter-game/maps"
+	screen "github.com/hritesh04/shooter-game/scene"
 	pb "github.com/hritesh04/shooter-game/stubs"
 	"github.com/hritesh04/shooter-game/types"
 )
@@ -20,13 +20,19 @@ const (
 //go:embed assets/*
 var assets embed.FS
 
+const (
+	Onboarding = iota
+	Winner
+	World
+)
+
 type Game struct {
 	Width, Height int
 	Scale         float64
 	World         types.IMap
 	Device        types.Device
 	Filesys       embed.FS
-	ScreenIndex   int
+	SceneIndex    int
 	ShowPopup     bool
 	RoodID        string
 	Screens       []types.IScreen
@@ -37,14 +43,14 @@ type Game struct {
 
 func NewGame(device types.Device) *Game {
 	g := &Game{
-		Width:       windowWidth,
-		Height:      windowHeight,
-		Scale:       1.8,
-		Device:      device,
-		Filesys:     assets,
-		ScreenIndex: types.Onboarding,
-		ShowPopup:   true,
-		Popup:       make(chan bool),
+		Width:      windowWidth,
+		Height:     windowHeight,
+		Scale:      1.8,
+		Device:     device,
+		Filesys:    assets,
+		SceneIndex: Onboarding,
+		ShowPopup:  true,
+		Popup:      make(chan bool),
 		// Client:      NewGrpcClient(),
 	}
 	g.Screens = []types.IScreen{screen.NewOnBoardingScreen(g, assets, g.Popup), screen.NewWinnerScreen(g)}
@@ -82,9 +88,13 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) && g.Device == types.Desktop {
 		ebiten.SetFullscreen(!ebiten.IsFullscreen())
 	}
-	g.Screens[g.ScreenIndex].Update()
-	if !g.ShowPopup {
+	if g.SceneIndex == World {
 		g.World.Update()
+	} else {
+		g.SceneIndex = g.Screens[g.SceneIndex].Update()
+	}
+
+	if !g.ShowPopup {
 	}
 	if g.ShowPopup {
 		select {
@@ -100,7 +110,7 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.World.Draw(screen)
 	if g.ShowPopup {
-		g.Screens[g.ScreenIndex].Draw(screen)
+		g.Screens[g.SceneIndex].Draw(screen)
 	}
 	// g.BoardingUI.Draw(screen)
 }

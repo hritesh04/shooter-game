@@ -13,11 +13,11 @@ import (
 
 type KeyboardInput struct {
 	width, height float64
+	cooldown      int
 	runes         []rune
 	text          string
 	roomID        string
 	counter       int
-	show          bool
 	done          chan bool
 	editable      bool
 	doneFunc      func() func(string) error
@@ -28,9 +28,9 @@ func NewKeyBoardInput(placeholder string, w, h float64, done chan bool, doneFunc
 	return &KeyboardInput{
 		width:      w,
 		height:     h,
+		cooldown:   0,
 		text:       placeholder,
 		counter:    0,
-		show:       true,
 		done:       done,
 		editable:   true,
 		doneFunc:   doneFunc,
@@ -42,35 +42,35 @@ func (k *KeyboardInput) Init() {
 
 }
 
-func (k *KeyboardInput) Update() error {
+func (k *KeyboardInput) Update() int {
 	// Add runes that are input by the user by AppendInputChars.
 	// Note that AppendInputChars result changes every frame, so you need to call this
 	// every frame.
-	if k.show {
-		if k.editable {
-			k.runes = ebiten.AppendInputChars(k.runes[:0])
-			k.roomID += string(k.runes)
+	if k.editable {
+		k.runes = ebiten.AppendInputChars(k.runes[:0])
+		k.roomID += string(k.runes)
+	}
+
+	// Adjust the string to be at most 10 lines.
+	// ss := strings.Split(g.text, "\n")
+	// if len(ss) > 10 {
+	// 	g.text = strings.Join(ss[len(ss)-10:], "\n")
+	// }
+
+	// If the enter key is pressed, add a line break.
+	// if repeatingKeyPressed(ebiten.KeyEnter) || repeatingKeyPressed(ebiten.KeyNumpadEnter) {
+	// 	k.text += "\n"
+	// }
+
+	// If the backspace key is pressed, remove one character.
+	if repeatingKeyPressed(ebiten.KeyBackspace) {
+		if len(k.roomID) >= 1 {
+			k.roomID = k.roomID[:len(k.roomID)-1]
 		}
-
-		// Adjust the string to be at most 10 lines.
-		// ss := strings.Split(g.text, "\n")
-		// if len(ss) > 10 {
-		// 	g.text = strings.Join(ss[len(ss)-10:], "\n")
-		// }
-
-		// If the enter key is pressed, add a line break.
-		// if repeatingKeyPressed(ebiten.KeyEnter) || repeatingKeyPressed(ebiten.KeyNumpadEnter) {
-		// 	k.text += "\n"
-		// }
-
-		// If the backspace key is pressed, remove one character.
-		if repeatingKeyPressed(ebiten.KeyBackspace) {
-			if len(k.roomID) >= 1 {
-				k.roomID = k.roomID[:len(k.roomID)-1]
-			}
-		}
-
-		if k.updateFlag && len(k.roomID) == 6 {
+	}
+	k.counter++
+	if k.updateFlag {
+		if len(k.roomID) == 6 {
 			k.text = "joining room "
 			k.editable = false
 			joinRoom := k.doneFunc()
@@ -78,42 +78,53 @@ func (k *KeyboardInput) Update() error {
 			// ctx := context.Background()
 			if err := joinRoom(k.roomID); err != nil {
 				k.text = err.Error()
+				k.cooldown = 60
+				k.editable = false
+				return 0
 			} else {
-				go func() {
-					// time.Sleep(time.Second * 2)
-					k.done <- true
-					k.show = false
-					k.text = "Enter the dungeon ID\n"
-					k.editable = true
-				}()
+				k.text = "Enter the dungeon ID\n"
+				k.editable = true
+				return 2
 			}
+		} else {
+			return 0
 		}
-	}
+	} else {
+		k.cooldown--
+		if k.cooldown <= 0 {
+			k.text = "Enter the dungeon ID\n"
+			k.roomID = ""
+			k.editable = true
+			k.updateFlag = true
+			k.counter = 0
+			return 2
+		} else {
+			return 0
+		}
 
-	k.counter++
-	return nil
+	}
 }
 
 func (k *KeyboardInput) Draw(screen *ebiten.Image) {
 	// Blink the cursor.
-	if k.show {
-		vector.DrawFilledRect(screen, float32(k.width-10), float32(k.height-10), float32(150), float32(50), color.Black, true)
-		t := k.text
-		w := k.roomID
-		if k.editable {
-			if k.counter%60 < 30 {
-				w += "_"
-			}
-		} else {
-			dots := k.counter % 4
-			for range dots {
-				t += "."
-			}
-
+	vector.DrawFilledRect(screen, float32(k.width-10), float32(k.height-10), float32(150), float32(50), color.Black, true)
+	t := k.text
+	w := k.roomID
+	if k.editable {
+		if k.counter%60 < 30 {
+			w += "_"
 		}
-		ebitenutil.DebugPrintAt(screen, t, int(k.width), int(k.height))
-		ebitenutil.DebugPrintAt(screen, w, int(k.width), int(k.height+20))
+	} else {
+		dots := k.counter % 6
+		for range dots {
+			t += "."
+		}
+		// dots := strings.Repeat(".", k.counter%4)
+		// t += dots
+
 	}
+	ebitenutil.DebugPrintAt(screen, t, int(k.width), int(k.height))
+	ebitenutil.DebugPrintAt(screen, w, int(k.width), int(k.height+20))
 }
 
 func repeatingKeyPressed(key ebiten.Key) bool {
