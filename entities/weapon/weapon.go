@@ -94,7 +94,7 @@ func (w *Weapon) Init() {
 	w.Input = inputSys.NewHandler(0, keymap)
 }
 
-func (w *Weapon) Fire(location resolv.Vector, direction types.Direction, by int) {
+func (w *Weapon) Fire(location resolv.Vector, direction types.Direction, by string) {
 	var bullet *resolv.Object
 	if direction == types.Left {
 		bullet = resolv.NewObject(location.X-45, location.Y, 1, 1, "bullet", string(direction))

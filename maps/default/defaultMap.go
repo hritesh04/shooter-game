@@ -1,7 +1,6 @@
 package new
 
 import (
-	"context"
 	"embed"
 	"encoding/json"
 	"image"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hritesh04/shooter-game/conn"
 	"github.com/hritesh04/shooter-game/entities/player"
 	"github.com/hritesh04/shooter-game/maps/common"
 	pb "github.com/hritesh04/shooter-game/stubs"
@@ -25,13 +25,15 @@ type DefaultMap struct {
 	MapJson       *common.TiledMapJSON
 	Space         *resolv.Space
 	Obstacles     []*resolv.Object
-	Players       []*player.Player
+	Players       map[string]*player.Player
 	Width, Height int
 	Scale         float64
 	TileImage     *ebiten.Image
 	Device        types.Device
 	Assets        embed.FS
+	name          string
 	// Client        pb.MovementEmitterClient
+	Conn   *conn.Connection
 	Rec    chan *pb.Data
 	Sender chan *pb.Data
 }
@@ -56,6 +58,7 @@ func NewDefaultMap(game types.Game) types.IMap {
 		Device:    game.GetDevice(),
 		TileImage: tileImage,
 		Assets:    fs,
+		Players:   make(map[string]*player.Player),
 		// Client:    game.GetClient(),
 		Rec:    make(chan *pb.Data),
 		Sender: make(chan *pb.Data),
@@ -121,30 +124,101 @@ func (m *DefaultMap) Init() {
 	// go m.ListenCommand()
 }
 
-func (m *DefaultMap) ListenCommand(address, ID string) {
-	client := common.NewGrpcClient(address)
-	ctx := context.Background()
-	log.Printf("Backend URL : %s for room %s", address, ID)
-	ctxj := context.Background()
-	join, err := client.JoinRoom(ctxj, &pb.Room{Id: ID})
+func (m *DefaultMap) JoinRoom(address, ID string) error {
+	m.Conn = conn.NewGrpcClient(address)
+	join, err := m.Conn.JoinRoom(ID)
 	if err != nil {
 		log.Fatalf("error joining room %w", err)
+		return err
 	}
+	// conn := m.Conn.GetEventConn()
+	// // do in seperate
+	// conn.Send(&pb.Data{Type: pb.Action_Join, RoomID: ID, Name: join.GetName()})
 	for _, p := range join.GetPlayer() {
-		player := player.NewPlayer(float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets)
+		m.name = p.GetName()
+		player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets, m.Conn, ID)
 		player.Init()
-		m.Players = append(m.Players, player)
+		player.AddStream()
+		m.Players[p.GetName()] = player
 	}
-	conn, err := client.SendMove(ctx)
-	if err != nil {
-		log.Fatalf("error make function call %v", err)
-	}
+	return nil
+}
+
+// func (m *DefaultMap) ListenCommand(address, ID string) {
+// 	client := common.NewGrpcClient(address)
+// 	ctx := context.Background()
+// 	log.Printf("Backend URL : %s for room %s", address, ID)
+
+// 	conn, err := client.SendMove(ctx)
+// 	if err != nil {
+// 		log.Fatalf("error make function call %v", err)
+// 	}
+// 	go func() {
+// 		// first req from client to join with player name and roomID
+// 		// m.Sender <- &pb.Data{Type: pb.Action_Join, RoomID: ID, Name: join.Name}
+// 		for {
+// 			resp, err := conn.Recv()
+// 			// first res if type info add player if game.player.name != this.name
+// 			log.Printf("received data from move :%v", resp)
+// 			if err == io.EOF {
+// 				break
+// 			}
+// 			if err != nil {
+// 				log.Fatalf("receiving Streaming message: %v", err)
+// 			}
+// 			switch resp.Type {
+// 			case pb.Action_Join:
+// 				log.Printf("New player joined : %+v", resp.Player)
+// 				players := resp.GetPlayer()
+// 				for _, p := range players {
+// 					player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets)
+// 					player.Init()
+// 					m.Players[p.GetName()] = player
+// 					// m.Players = append(m.Players, player)
+// 				}
+// 				break
+// 			case pb.Action_Info:
+// 				p := resp.GetPlayer()[0]
+// 				player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets)
+// 				player.Init()
+// 				m.Players[p.GetName()] = player
+// 				// m.Players = append(m.Players, player)
+// 				break
+// 			}
+// 			// m.Rec <- resp
+// 		}
+// 	}()
+// 	for {
+// 		data := <-m.Sender
+// 		log.Printf("sending data from move :%v", data)
+// 		err := conn.Send(data)
+// 		if err == io.EOF {
+// 			// Bidi streaming RPC errors happen and make Send return io.EOF,
+// 			// not the RPC error itself.  Call Recv to determine the error.
+// 			break
+// 		}
+// 		if err != nil {
+// 			// Some local errors are reported this way, e.g. errors serializing
+// 			// the request message.
+// 			log.Fatalf("sending Streaming message: %v", err)
+// 		}
+// 	}
+// 	err = conn.CloseSend()
+// 	if err != nil {
+// 		log.Fatalf("cannot close send: %w", err)
+// 	}
+// }
+
+func (m *DefaultMap) ListenCommand(address, ID string) {
+	conn := m.Conn.GetEventConn()
+	log.Printf("Backend URL : %s for room %s", address, ID)
 	go func() {
 		// first req from client to join with player name and roomID
-		m.Sender <- &pb.Data{Type: pb.Action_Join, RoomID: ID, Name: join.Name}
+		// m.Sender <- &pb.Data{Type: pb.Action_Join, RoomID: ID, Name: join.Name}
 		for {
 			resp, err := conn.Recv()
 			// first res if type info add player if game.player.name != this.name
+			log.Printf("received data from move :%v", resp)
 			if err == io.EOF {
 				break
 			}
@@ -156,43 +230,66 @@ func (m *DefaultMap) ListenCommand(address, ID string) {
 				log.Printf("New player joined : %+v", resp.Player)
 				players := resp.GetPlayer()
 				for _, p := range players {
-					player := player.NewPlayer(float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets)
+					player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets, nil, "")
 					player.Init()
-					m.Players = append(m.Players, player)
+					m.Players[p.GetName()] = player
+					// m.Players = append(m.Players, player)
 				}
-
+				break
+			case pb.Action_Info:
+				players := resp.GetPlayer()
+				for _, p := range players {
+					player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets, nil, "")
+					player.Init()
+					m.Players[p.GetName()] = player
+					// m.Players = append(m.Players, player)
+				}
+				break
+			case pb.Action_Movement:
+				player := m.Players[resp.GetName()]
+				// var key input.Key
+				switch resp.GetData() {
+				case pb.Direction_UP:
+					player.Src.Position.Y -= 2
+				case pb.Direction_DOWN:
+					player.Src.Position.Y += 2
+				case pb.Direction_LEFT:
+					player.Src.Position.X -= 2
+				case pb.Direction_RIGHT:
+					player.Src.Position.X += 2
+				}
+				// fmt.Println("PLAYER UPDATE  BY grpc")
+				// player.Input.EmitKeyEvent(input.SimulatedKeyEvent{Key: key})
+				// player.Src.Update()
+				break
+			case pb.Action_Fire:
+				player := m.Players[resp.GetName()]
+				player.Weapon.Fire(player.Src.Position, player.Dir, player.Name)
+				// player.Weapon.Update()
+				// var key input.Key
+				// switch resp.GetData() {
+				// case pb.Direction_LEFT:
+				// 	key = input.KeyA
+				// case pb.Direction_RIGHT:
+				// 	key = input.KeyD
+				// }
+				// player.Input.EmitKeyEvent(input.SimulatedKeyEvent{Key: input.KeySpace})
 			}
-			log.Printf("received data from move :%v", resp)
-			// m.Rec <- resp
 		}
 	}()
-	for {
-		data := <-m.Sender
-		log.Printf("sending data from move :%v", data)
-		err := conn.Send(data)
-		if err == io.EOF {
-			// Bidi streaming RPC errors happen and make Send return io.EOF,
-			// not the RPC error itself.  Call Recv to determine the error.
-			break
-		}
-		if err != nil {
-			// Some local errors are reported this way, e.g. errors serializing
-			// the request message.
-			log.Fatalf("sending Streaming message: %v", err)
-		}
-	}
-	err = conn.CloseSend()
-	if err != nil {
-		log.Fatalf("cannot close send: %w", err)
-	}
 }
 
 func (m *DefaultMap) Update() error {
-	if len(m.Players) > 0 {
-		for _, player := range m.Players {
+	// fmt.Println("MAP UPDATE")
+	// if len(m.Players) > 0 {
+	for name, player := range m.Players {
+		if name == m.name {
 			player.Update()
+		} else {
+			player.Simulate()
 		}
 	}
+	// }
 	return nil
 }
 
@@ -219,6 +316,7 @@ func (m *DefaultMap) Draw(screen *ebiten.Image) {
 	for _, player := range m.Players {
 		player.Draw(screen)
 	}
+
 	// debug code
 	// for _, obj := range m.Obstacles {
 	// 	if obj.HasTags("obstacle") {
