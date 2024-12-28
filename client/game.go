@@ -3,6 +3,7 @@ package client
 import (
 	"embed"
 	_ "image/png"
+	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -24,6 +25,7 @@ const (
 	Onboarding = iota
 	Winner
 	World
+	Exit
 )
 
 type Game struct {
@@ -53,7 +55,7 @@ func NewGame(device types.Device) *Game {
 		Popup:      make(chan bool),
 		// Client:      NewGrpcClient(),
 	}
-	g.Screens = []types.IScreen{screen.NewOnBoardingScreen(g, assets, g.Popup), screen.NewWinnerScreen(g)}
+	g.Screens = []types.IScreen{screen.NewOnBoardingScreen(Onboarding, World, g, assets, g.Popup), screen.NewWinnerScreen(g)}
 	g.World = maps.NewMap(maps.NewDefMap, g)
 	// g.BoardingUI = ui.InitBoardingUI()
 	return g
@@ -81,6 +83,10 @@ func (g *Game) SetServerInfo(ID, address string) {
 	g.RoodID = ID
 	g.Address = address
 	// g.Client = NewGrpcClient(address)
+	if err := g.World.JoinRoom(address, ID); err != nil {
+		log.Println("Failed to join room")
+		return
+	}
 	go g.World.ListenCommand(address, ID)
 }
 
@@ -92,19 +98,24 @@ func (g *Game) Update() error {
 		g.World.Update()
 	} else {
 		g.SceneIndex = g.Screens[g.SceneIndex].Update()
+		// fmt.Println("Game scene index ", g.SceneIndex)
 	}
 
-	if !g.ShowPopup {
-	}
-	if g.ShowPopup {
-		select {
-		case <-g.Popup:
-			g.ShowPopup = false
-		default:
-		}
-	}
+	// if !g.ShowPopup {
+	// }
+	// if g.ShowPopup {
+	// 	select {
+	// 	case <-g.Popup:
+	// 		g.ShowPopup = false
+	// 	default:
+	// 	}
+	// }
 	// g.BoardingUI.Update()
 	return nil
+}
+
+func (g *Game) TogglePopUp(flag bool) {
+	g.ShowPopup = flag
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {

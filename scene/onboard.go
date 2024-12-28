@@ -24,12 +24,14 @@ const (
 	JoinDungeon = iota
 	CreateDungeon
 	Onboarding
+	Exit
 )
 
 type Onboard struct {
 	ID                int
 	Width, Height     int
 	Index             int
+	ParentScene       int
 	collisionCoolDown int
 	SceneStart        bool
 	Game              types.Game
@@ -47,7 +49,7 @@ type Onboard struct {
 	// Client        pb.MovementEmitterClient
 }
 
-func NewOnBoardingScreen(game types.Game, fs embed.FS, show chan bool) *Onboard {
+func NewOnBoardingScreen(ID, ParentScene int, game types.Game, fs embed.FS, show chan bool) *Onboard {
 	file, err := fs.Open("assets/dungeonSheet.png")
 	if err != nil {
 		log.Fatal(err)
@@ -69,7 +71,8 @@ func NewOnBoardingScreen(game types.Game, fs embed.FS, show chan bool) *Onboard 
 		log.Fatal(err)
 	}
 	scence := &Onboard{
-		ID:                Onboarding,
+		ID:                ID,
+		ParentScene:       ParentScene,
 		Game:              game,
 		TileImage:         tileImage,
 		PlayerImage:       runnerImage,
@@ -97,7 +100,7 @@ func (o *Onboard) Init() {
 	ty := gh/2 - gh/3
 
 	o.Space = resolv.NewSpace(int(gw), int(gh), cellSize, cellSize)
-	o.Player = player.NewPlayer(tx+tx*0.9, ty+ty*2.9, 0, o.Space, o.Game.GetDevice(), o.Assets)
+	o.Player = player.NewPlayer("onboard", tx+tx*0.9, ty+ty*2.9, 0, o.Space, o.Game.GetDevice(), o.Assets, nil, "")
 	o.Player.Init()
 	o.Obstacles = append(o.Obstacles, o.Player.Src)
 
@@ -168,30 +171,36 @@ func (o *Onboard) Init() {
 		o.Space.Add(obstacle)
 	}
 
-	o.Scene = append(o.Scene, ui.NewKeyBoardInput("Enter the dungeon ID\n", tx+tx*0.3, ty-ty*0.3, o.Done, o.JoinRoom), ui.NewKeyBoardInput("Creating a new dungeon", tx+tx*1.3, ty-ty*0.3, o.Done, o.CreateRoom))
+	o.Scene = append(o.Scene, ui.NewKeyBoardInput(JoinDungeon, Onboarding, "Enter the dungeon ID\n", tx+tx*0.3, ty-ty*0.3, o.JoinRoom, Exit), ui.NewKeyBoardInput(CreateDungeon, Onboarding, "Creating a new dungeon", tx+tx*1.3, ty-ty*0.3, o.CreateRoom, Exit))
 }
 
 func (o *Onboard) Update() int {
 	if o.Index == Onboarding {
 		o.Player.Update()
-		fmt.Println("player update", o.Index)
-		fmt.Println("scene started ? ", o.SceneStart)
-
 		if o.collisionCoolDown <= 0 {
 			playerObj := o.Player.Src
 			if isScene, scene := checkJoinRoom(playerObj); isScene {
-				fmt.Println("join scene detected", o.Index)
 				// if o.SceneStart {
 				// 	o.SceneStart = false
+				fmt.Println("collission detected ", scene)
 				o.collisionCoolDown = 60
 				// }
 				o.Index = scene
-				return 0
+				// fmt.Println("join scene detected", o.Index)
+				return o.ID
 			}
 		}
 		o.collisionCoolDown--
 	} else {
-		o.Index = o.Scene[o.Index].Update()
+		screen := o.Scene[o.Index].Update()
+		if screen == Exit {
+			o.Game.TogglePopUp(false)
+			return o.ParentScene
+		} else {
+			o.Index = screen
+		}
+		// fmt.Println("ID after update ", o.Index)
+		// fmt.Println("index after keyboard update ", o.Index)
 		// if o.Index == Onboarding {
 		// 	o.SceneStart = false
 		// }
@@ -205,7 +214,7 @@ func (o *Onboard) Update() int {
 	// 	}()
 	// default:
 	// }
-	return 0
+	return o.ID
 }
 
 func checkJoinRoom(player *resolv.Object) (bool, int) {
@@ -215,7 +224,7 @@ func checkJoinRoom(player *resolv.Object) (bool, int) {
 	if collision := player.Check(0, -2, "create"); collision != nil {
 		return true, CreateDungeon
 	}
-	return false, 0
+	return false, 2
 }
 
 // func (o *Onboard) JoinRoom() types.GrpcFunc {
@@ -238,6 +247,7 @@ func (o *Onboard) JoinRoom() func(string) error {
 		if err != nil {
 			return fmt.Errorf("data marshaling failed")
 		}
+		fmt.Println("JOIN REQ")
 		req, err := http.NewRequest(http.MethodPost, "http://localhost:8080/joinRoom", bytes.NewBuffer(out))
 		if err != nil {
 			return fmt.Errorf("error creating request")

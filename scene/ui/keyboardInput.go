@@ -12,29 +12,33 @@ import (
 // repeatingKeyPressed return true when key is pressed considering the repeat state.
 
 type KeyboardInput struct {
+	ID            int
+	ParentScene   int
 	width, height float64
 	cooldown      int
 	runes         []rune
 	text          string
 	roomID        string
 	counter       int
-	done          chan bool
 	editable      bool
 	doneFunc      func() func(string) error
+	doneFlag      int
 	updateFlag    bool
 }
 
-func NewKeyBoardInput(placeholder string, w, h float64, done chan bool, doneFunc func() func(string) error) *KeyboardInput {
+func NewKeyBoardInput(ID, ParentScene int, placeholder string, w, h float64, doneFunc func() func(string) error, doneFlag int) *KeyboardInput {
 	return &KeyboardInput{
-		width:      w,
-		height:     h,
-		cooldown:   0,
-		text:       placeholder,
-		counter:    0,
-		done:       done,
-		editable:   true,
-		doneFunc:   doneFunc,
-		updateFlag: true,
+		ID:          ID,
+		ParentScene: ParentScene,
+		width:       w,
+		height:      h,
+		cooldown:    0,
+		text:        placeholder,
+		counter:     0,
+		editable:    true,
+		doneFunc:    doneFunc,
+		doneFlag:    doneFlag,
+		updateFlag:  true,
 	}
 }
 
@@ -80,14 +84,15 @@ func (k *KeyboardInput) Update() int {
 				k.text = err.Error()
 				k.cooldown = 60
 				k.editable = false
-				return 0
+				return k.ID
 			} else {
 				k.text = "Enter the dungeon ID\n"
 				k.editable = true
-				return 2
+				k.roomID = ""
+				return k.doneFlag
 			}
 		} else {
-			return 0
+			return k.ID
 		}
 	} else {
 		k.cooldown--
@@ -97,9 +102,9 @@ func (k *KeyboardInput) Update() int {
 			k.editable = true
 			k.updateFlag = true
 			k.counter = 0
-			return 2
+			return k.ParentScene
 		} else {
-			return 0
+			return k.ID
 		}
 
 	}
