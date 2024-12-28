@@ -15,36 +15,35 @@ type Game interface {
 	GetSize() (float64, float64)
 	GetDevice() Device
 	GetFS() embed.FS
-	GetClient() *pb.MovementEmitterClient
+	GetClient() *pb.MovementEmitterClient //
 	SetServerInfo(string, string)
+	TogglePopUp(bool)
 }
 
 type IMap interface {
 	Init()
 	Update() error
 	Draw(*ebiten.Image)
+	JoinRoom(string, string) error
 	ListenCommand(string, string)
 }
 
 type GrpcFunc func(context.Context, *pb.Room) (*pb.Player, error)
 
-type Screen int
-
-const (
-	Onboarding = iota
-	Winner
-)
-
-const (
-	JoinDungeon = iota
-	CreateDungeon
-)
-
 type IScreen interface {
 	Init()
-	Update() error
+	Update() int
 	Draw(*ebiten.Image)
 }
+
+const (
+	Map = iota
+	Onboarding
+	Winner
+	JoinDungeon
+	CreateDungeon
+	InputBox
+)
 
 type Direction string
 
