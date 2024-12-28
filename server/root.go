@@ -52,7 +52,7 @@ func (s *Server) AddRoom(roomID string) {
 }
 
 type ServerManager struct {
-	severMap map[string]string
+	severMap map[string]Server
 	Server   []Server
 }
 
@@ -73,7 +73,7 @@ func (s *ServerManager) AddServer(server Server) {
 
 func main() {
 	serverManager := &ServerManager{
-		severMap: make(map[string]string),
+		severMap: make(map[string]Server),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/createRoom", func(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +94,7 @@ func main() {
 			roomID = generateSecureID()
 		}
 		server.AddRoom(roomID)
-		serverManager.severMap[roomID] = server.Address
+		serverManager.severMap[roomID] = server
 		// w.WriteHeader(http.StatusOK)
 		response := PlayerResponse{
 			Address: server.Address,
@@ -125,10 +125,12 @@ func main() {
 			http.Error(w, fmt.Errorf("dungeon not found").Error(), http.StatusBadRequest)
 			return
 		}
+		server.ActiveConnection++
 		response := PlayerResponse{
-			Address: server,
+			Address: server.Address,
 			RoomID:  player.RoomID,
 		}
+		log.Printf("New join room request current count %d", server.ActiveConnection)
 		// result, err := json.Marshal(&response)
 		// if err != nil {
 		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -157,6 +159,7 @@ func main() {
 		Handler: mux,
 		Addr:    ":8080",
 	}
+	log.Printf("Starting Server listening at port %s", server.Addr)
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal("Server failed")
 	}
