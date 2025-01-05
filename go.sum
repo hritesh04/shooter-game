@@ -10,6 +10,8 @@ github.com/hajimehoshi/ebiten/v2 v2.8.0 h1:CZF2PAksTG7vee9mu1Ok9QHqPyic0rTmIQvep
 github.com/hajimehoshi/ebiten/v2 v2.8.0/go.mod h1:32c6GXjzxA/h2CLLNMjWv5dVSNkTnn7NASZm0nXC/rA=
 github.com/jezek/xgb v1.1.1 h1:bE/r8ZZtSv7l9gk6nU0mYx51aXrvnyb44892TwSaqS4=
 github.com/jezek/xgb v1.1.1/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
+github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
+github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
 github.com/quasilyte/ebitengine-input v0.9.1 h1:sN7jNDLfGn9ZY1lurD4d3oXIOmQbZwYPVpuo4DlsiG0=
 github.com/quasilyte/ebitengine-input v0.9.1/go.mod h1:xYkU+JqzWzjnVMolCIar0VFRly1TtjmEHfQWAoIan+o=
 github.com/quasilyte/gmath v0.0.0-20221217210116-fba37a2e15c7 h1:mvIS9aGirkzuYmHHNWAP6sLRoA5VFaIzMoFdPmqgPdY=

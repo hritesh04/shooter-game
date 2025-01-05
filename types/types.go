@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	pb "github.com/hritesh04/shooter-game/stubs"
+	"google.golang.org/grpc"
 )
 
 type Game interface {
@@ -26,6 +27,12 @@ type IMap interface {
 	Draw(*ebiten.Image)
 	JoinRoom(string, string) error
 	ListenCommand(string, string)
+}
+
+type IConnection interface {
+	JoinRoom(string) (*pb.Room, error)
+	GetEventConn() pb.MovementEmitter_SendMoveClient
+	SendMove(grpc.BidiStreamingClient[pb.Data, pb.Data], *pb.Data) error
 }
 
 type GrpcFunc func(context.Context, *pb.Room) (*pb.Player, error)

@@ -20,6 +20,7 @@ require (
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
 	github.com/ebitengine/purego v0.8.0 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
+	github.com/joho/godotenv v1.5.1
 	github.com/quasilyte/gmath v0.0.0-20221217210116-fba37a2e15c7 // indirect
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
 	golang.org/x/sync v0.8.0 // indirect
