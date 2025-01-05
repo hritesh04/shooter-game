@@ -11,9 +11,11 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 
 	pb "github.com/hritesh04/shooter-game/stubs"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 type server struct {
@@ -62,11 +64,12 @@ func (g *Game) GetPlayer(name string) *Player {
 	return nil
 }
 
-func (g *Game) EmitMove(name string, direction pb.Direction) {
+func (g *Game) EmitMove(name string, action pb.Action, direction pb.Direction, player []*pb.Player) {
 	data := &pb.Data{
-		Type: pb.Action_Movement,
-		Data: direction,
-		Name: name,
+		Type:   action,
+		Data:   direction,
+		Name:   name,
+		Player: player,
 	}
 	for _, p := range g.Players {
 		if p.Name == name {
@@ -85,7 +88,11 @@ type Player struct {
 
 func (p *Player) AddStream(stream pb.MovementEmitter_SendMoveServer) {
 	p.Conn = stream
-	log.Println("STREAM ADDED")
+}
+
+func (p *Player) UpdateLoc(player *pb.Player) {
+	p.X = float64(player.GetX())
+	p.Y = float64(player.GetY())
 }
 
 func (s *server) SendMove(stream pb.MovementEmitter_SendMoveServer) error {
@@ -122,11 +129,14 @@ func (s *server) SendMove(stream pb.MovementEmitter_SendMoveServer) error {
 			break
 		case pb.Action_Fire:
 			game := s.GameManger.GetRoom(in.GetRoomID())
-			game.EmitMove(in.GetName(), in.Data)
+			game.EmitMove(in.GetName(), in.GetType(), in.GetData(), in.GetPlayer())
 			break
 		case pb.Action_Movement:
 			game := s.GameManger.GetRoom(in.GetRoomID())
-			game.EmitMove(in.GetName(), in.GetData())
+			player := game.GetPlayer(in.GetName())
+			player.UpdateLoc(in.GetPlayer()[0])
+			// player := game.GetPlayer(in.GetName())
+			game.EmitMove(in.GetName(), in.GetType(), in.GetData(), in.GetPlayer())
 			break
 		}
 		// if in.Type == pb.Action_Join {
@@ -185,6 +195,7 @@ func (s *server) CreateRoom(ctx context.Context, data *pb.Room) (*pb.Player, err
 
 func (s *server) JoinRoom(ctx context.Context, data *pb.Room) (*pb.Room, error) {
 	// fmt.Println("%+v", data)
+	fmt.Printf("ctx %+v", ctx)
 	game := s.GameManger.GetRoom(data.GetId())
 	p := game.AddPlayer()
 	// fmt.Printf("Player %s joined room %s\n", player.Name, data.GetId())
@@ -213,7 +224,7 @@ func (s *server) JoinRoom(ctx context.Context, data *pb.Room) (*pb.Room, error) 
 // }
 
 func main() {
-	lis, err := net.Listen("tcp", ":3000")
+	lis, err := net.Listen("tcp", ":"+os.Getenv("GAME_SERVER_PORT"))
 	if err != nil {
 		log.Fatalf("failed to listen : %v", err)
 	}
@@ -224,24 +235,28 @@ func main() {
 			Address: "localhost:3000",
 		}
 		out, err := json.Marshal(server)
-		req, err := http.NewRequest(http.MethodPost, "http://localhost:8080/registerServer", bytes.NewBuffer(out))
 		if err != nil {
-			log.Printf("error creating request : %w", err)
+			log.Fatalf("error binding request payload : %v", err)
+		}
+		req, err := http.NewRequest(http.MethodPost, os.Getenv("ROOT_SERVER_URL")+"/registerServer", bytes.NewBuffer(out))
+		if err != nil {
+			log.Printf("error creating request : %v", err)
 		}
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
-			log.Printf("error making http call : %w", err)
+			log.Printf("error making http call : %v", err)
 		}
 		if res.StatusCode != http.StatusOK {
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
-				log.Printf("error parsing response body :%w", err)
+				log.Printf("error parsing response body :%v", err)
 			}
 			log.Fatalf("error in registrating server :%s", string(body))
 		}
 	}()
 	// game = make(map[string]Game)
-	s := grpc.NewServer()
+	opts := []grpc.ServerOption{grpc.UnaryInterceptor(corsInterceptor)}
+	s := grpc.NewServer(opts...)
 	pb.RegisterMovementEmitterServer(s, &server{
 		GameManger: GameManager{games: make(map[string]*Game)},
 	})
@@ -249,6 +264,34 @@ func main() {
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve : %v", err)
 	}
+	// grpcWebServer := grpcweb.WrapServer(s)
+
+	// // HTTP handler to serve gRPC and gRPC-Web
+	// httpServer := &http.Server{
+	// 	Addr: ":3001",
+	// 	Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 		if grpcWebServer.IsGrpcWebRequest(r) || grpcWebServer.IsAcceptableGrpcCorsRequest(r) {
+	// 			grpcWebServer.ServeHTTP(w, r)
+	// 		} else {
+	// 			http.NotFound(w, r)
+	// 		}
+	// 	}),
+	// }
+
+	// log.Printf("server listening at %v", lis.Addr())
+	// if err := httpServer.ListenAndServe(); err != nil {
+	// 	log.Fatalf("failed to serve : %v", err)
+	// }
+}
+
+func corsInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	headers := metadata.Pairs(
+		"Access-Control-Allow-Origin", "*",
+		"Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE",
+		"Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization",
+	)
+	grpc.SetHeader(ctx, headers)
+	return handler(ctx, req)
 }
 
 type GameManager struct {

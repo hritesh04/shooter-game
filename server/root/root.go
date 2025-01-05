@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
 
 	pb "github.com/hritesh04/shooter-game/stubs"
 	"google.golang.org/grpc"
@@ -71,26 +72,40 @@ func (s *ServerManager) AddServer(server Server) {
 	s.Server = append(s.Server, server)
 }
 
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+}
+
+// func init() {
+// 	err := godotenv.Load(".env")
+// 	if err != nil {
+// 		panic(err.Error())
+// 	}
+// }
+
 func main() {
 	serverManager := &ServerManager{
 		severMap: make(map[string]Server),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/createRoom", func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		// decoder := json.NewDecoder(r.Body)
-		// var player PlayerRequest
-		// if err := decoder.Decode(&player); err != nil {
-		// 	w.WriteHeader(http.StatusBadGateway)
-		// 	w.Write([]byte("Invalid Input"))
-		// }
-		server := serverManager.GetLeastConnectedServer()
+		decoder := json.NewDecoder(r.Body)
+		var player PlayerRequest
 		var roomID string
-		roomID = generateSecureID()
-		if _, ok := serverManager.severMap[roomID]; !ok {
+		if err := decoder.Decode(&player); err != nil {
+			w.WriteHeader(http.StatusBadGateway)
+			w.Write([]byte("Invalid Input"))
+		}
+		server := serverManager.GetLeastConnectedServer()
+		if roomID == "" {
+			roomID = generateSecureID()
+		}
+		if _, ok := serverManager.severMap[roomID]; ok {
 			roomID = generateSecureID()
 		}
 		server.AddRoom(roomID)
@@ -110,6 +125,7 @@ func main() {
 		writeJSON(w, response)
 	})
 	mux.HandleFunc("/joinRoom", func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -141,6 +157,7 @@ func main() {
 		writeJSON(w, response)
 	})
 	mux.HandleFunc("/registerServer", func(w http.ResponseWriter, r *http.Request) {
+		enableCors(&w)
 		if r.Method != http.MethodPost {
 			http.Error(w, fmt.Errorf("Invalid Method").Error(), http.StatusMethodNotAllowed)
 			return
@@ -157,7 +174,7 @@ func main() {
 	})
 	server := &http.Server{
 		Handler: mux,
-		Addr:    ":8080",
+		Addr:    ":" + os.Getenv("ROOT_PORT"),
 	}
 	log.Printf("Starting Server listening at port %s", server.Addr)
 	if err := server.ListenAndServe(); err != nil {
