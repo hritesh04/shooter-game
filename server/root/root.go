@@ -9,7 +9,6 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"os"
 
 	pb "github.com/hritesh04/shooter-game/stubs"
 	"google.golang.org/grpc"
@@ -159,13 +158,13 @@ func main() {
 	mux.HandleFunc("/registerServer", func(w http.ResponseWriter, r *http.Request) {
 		enableCors(&w)
 		if r.Method != http.MethodPost {
-			http.Error(w, fmt.Errorf("Invalid Method").Error(), http.StatusMethodNotAllowed)
+			http.Error(w, fmt.Errorf("invalid method").Error(), http.StatusMethodNotAllowed)
 			return
 		}
 		decoder := json.NewDecoder(r.Body)
 		var server Server
 		if err := decoder.Decode(&server); err != nil {
-			http.Error(w, fmt.Errorf("Failed to decode body").Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Errorf("failed to decode body").Error(), http.StatusBadRequest)
 			return
 		}
 		serverManager.AddServer(server)
@@ -174,7 +173,7 @@ func main() {
 	})
 	server := &http.Server{
 		Handler: mux,
-		Addr:    ":" + os.Getenv("ROOT_PORT"),
+		Addr:    ":3000",
 	}
 	log.Printf("Starting Server listening at port %s", server.Addr)
 	if err := server.ListenAndServe(); err != nil {
@@ -191,6 +190,6 @@ func generateSecureID() string {
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		// http.Error(w, "Error encoding response", http.StatusInternalServerError)
+		http.Error(w, "error encoding response", http.StatusInternalServerError)
 	}
 }
