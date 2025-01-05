@@ -33,7 +33,7 @@ type DefaultMap struct {
 	Assets        embed.FS
 	name          string
 	// Client        pb.MovementEmitterClient
-	Conn   *conn.Connection
+	Conn   types.IConnection
 	Rec    chan *pb.Data
 	Sender chan *pb.Data
 }
@@ -125,10 +125,11 @@ func (m *DefaultMap) Init() {
 }
 
 func (m *DefaultMap) JoinRoom(address, ID string) error {
-	m.Conn = conn.NewGrpcClient(address)
+	m.Conn = conn.NewGrpcClient(address, m.Device)
 	join, err := m.Conn.JoinRoom(ID)
 	if err != nil {
-		log.Fatalf("error joining room %w", err)
+		log.Fatal(err)
+		log.Fatalf("error joining room %v", err)
 		return err
 	}
 	// conn := m.Conn.GetEventConn()
@@ -226,54 +227,39 @@ func (m *DefaultMap) ListenCommand(address, ID string) {
 				log.Fatalf("receiving Streaming message: %v", err)
 			}
 			switch resp.Type {
-			case pb.Action_Join:
+			case pb.Action_Join, pb.Action_Info:
 				log.Printf("New player joined : %+v", resp.Player)
 				players := resp.GetPlayer()
 				for _, p := range players {
-					player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets, nil, "")
+					player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets, nil, ID)
 					player.Init()
 					m.Players[p.GetName()] = player
 					// m.Players = append(m.Players, player)
 				}
-				break
-			case pb.Action_Info:
+			case pb.Action_Movement:
 				players := resp.GetPlayer()
 				for _, p := range players {
-					player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets, nil, "")
-					player.Init()
-					m.Players[p.GetName()] = player
-					// m.Players = append(m.Players, player)
+					player := m.Players[p.GetName()]
+					switch resp.GetData() {
+					case pb.Direction_RIGHT:
+						player.Dir = types.Right
+					case pb.Direction_LEFT:
+						player.Dir = types.Left
+					}
+					player.Src.Position.X = float64(p.GetX())
+					player.Src.Position.Y = float64(p.GetY())
 				}
-				break
-			case pb.Action_Movement:
-				player := m.Players[resp.GetName()]
-				// var key input.Key
-				switch resp.GetData() {
-				case pb.Direction_UP:
-					player.Src.Position.Y -= 2
-				case pb.Direction_DOWN:
-					player.Src.Position.Y += 2
-				case pb.Direction_LEFT:
-					player.Src.Position.X -= 2
-				case pb.Direction_RIGHT:
-					player.Src.Position.X += 2
-				}
-				// fmt.Println("PLAYER UPDATE  BY grpc")
-				// player.Input.EmitKeyEvent(input.SimulatedKeyEvent{Key: key})
-				// player.Src.Update()
-				break
 			case pb.Action_Fire:
-				player := m.Players[resp.GetName()]
-				player.Weapon.Fire(player.Src.Position, player.Dir, player.Name)
-				// player.Weapon.Update()
-				// var key input.Key
-				// switch resp.GetData() {
-				// case pb.Direction_LEFT:
-				// 	key = input.KeyA
-				// case pb.Direction_RIGHT:
-				// 	key = input.KeyD
-				// }
-				// player.Input.EmitKeyEvent(input.SimulatedKeyEvent{Key: input.KeySpace})
+				players := resp.GetPlayer()
+				for _, p := range players {
+					player := m.Players[p.GetName()]
+					switch resp.GetData() {
+					case pb.Direction_RIGHT:
+						player.Weapon.Fire(resolv.Vector{X: float64(p.GetX()), Y: float64(p.GetY())}, types.Right, p.GetName())
+					case pb.Direction_LEFT:
+						player.Weapon.Fire(resolv.Vector{X: float64(p.GetX()), Y: float64(p.GetY())}, types.Left, p.GetName())
+					}
+				}
 			}
 		}
 	}()

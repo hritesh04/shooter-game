@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -247,8 +248,7 @@ func (o *Onboard) JoinRoom() func(string) error {
 		if err != nil {
 			return fmt.Errorf("data marshaling failed")
 		}
-		fmt.Println("JOIN REQ")
-		req, err := http.NewRequest(http.MethodPost, "http://localhost:8080/joinRoom", bytes.NewBuffer(out))
+		req, err := http.NewRequest(http.MethodPost, os.Getenv("ROOT_SERVER_URL")+"/joinRoom", bytes.NewBuffer(out))
 		if err != nil {
 			return fmt.Errorf("error creating request")
 		}
@@ -283,8 +283,14 @@ func (o *Onboard) JoinRoom() func(string) error {
 }
 
 func (o *Onboard) CreateRoom() func(string) error {
-	return func(string) error {
-		req, err := http.NewRequest(http.MethodGet, "http://localhost:8080/createRoom", nil)
+	return func(roomID string) error {
+		out, err := json.Marshal(struct {
+			RoomID string `json:"roomID"`
+		}{RoomID: roomID})
+		if err != nil {
+			return fmt.Errorf("data marshaling failed")
+		}
+		req, err := http.NewRequest(http.MethodGet, os.Getenv("ROOT_SERVER_URL")+"/createRoom", bytes.NewBuffer(out))
 		if err != nil {
 			return fmt.Errorf("error creating request")
 		}

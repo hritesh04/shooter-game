@@ -4,6 +4,7 @@ import (
 	"embed"
 	_ "image/png"
 	"log"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -11,6 +12,7 @@ import (
 	screen "github.com/hritesh04/shooter-game/scene"
 	pb "github.com/hritesh04/shooter-game/stubs"
 	"github.com/hritesh04/shooter-game/types"
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -41,6 +43,15 @@ type Game struct {
 	Client        *pb.MovementEmitterClient
 	Popup         chan bool
 	Address       string
+}
+
+func init() {
+	if env := os.Getenv("ENV"); env == "DEV" {
+		err := godotenv.Load(".env")
+		if err != nil {
+			panic(err.Error())
+		}
+	}
 }
 
 func NewGame(device types.Device) *Game {

@@ -2,13 +2,11 @@ package player
 
 import (
 	"embed"
-	"fmt"
 	"image"
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hritesh04/shooter-game/conn"
 	"github.com/hritesh04/shooter-game/entities/weapon"
 	pb "github.com/hritesh04/shooter-game/stubs"
 	"github.com/hritesh04/shooter-game/types"
@@ -36,6 +34,7 @@ var keymap = input.Keymap{
 
 type Player struct {
 	Name   string
+	X, Y   float64
 	Input  *input.Handler
 	Keymap input.Keymap
 	Image  *ebiten.Image
@@ -43,10 +42,10 @@ type Player struct {
 	roomID string
 	Weapon *weapon.Weapon
 	Dir    types.Direction
-	conn   *conn.Connection
+	conn   types.IConnection
 }
 
-func NewPlayer(name string, w float64, h float64, index int, space *resolv.Space, device types.Device, assets embed.FS, Conn *conn.Connection, roomID string) *Player {
+func NewPlayer(name string, w float64, h float64, index int, space *resolv.Space, device types.Device, assets embed.FS, Conn types.IConnection, roomID string) *Player {
 	var playerImage *ebiten.Image
 	var err error
 	runner, err := assets.Open("assets/runner.png")
@@ -73,6 +72,8 @@ func NewPlayer(name string, w float64, h float64, index int, space *resolv.Space
 	space.Add(player)
 	return &Player{
 		Name:   name,
+		X:      w,
+		Y:      h,
 		Src:    player,
 		Image:  playerImage,
 		Weapon: weapon.NewWeapon(space, weapon.Pistol, device, assets),
@@ -104,6 +105,7 @@ func (p *Player) Update() {
 	// p.Input.EmitKeyEvent(input.SimulatedKeyEvent{})
 	playerObj := p.Src
 	moved := false
+	player := &pb.Player{Name: p.Name, X: float32(p.Src.Position.X), Y: float32(p.Src.Position.Y)}
 	var conn pb.MovementEmitter_SendMoveClient
 	if p.conn != nil {
 		conn = p.conn.GetEventConn()
@@ -114,7 +116,7 @@ func (p *Player) Update() {
 			playerObj.Position.X -= 2
 			p.Dir = types.Left
 			if p.conn != nil {
-				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_LEFT, Name: p.Name, RoomID: p.roomID})
+				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_LEFT, Name: p.Name, RoomID: p.roomID, Player: []*pb.Player{player}})
 			}
 			// playerObj.Shape.Move(-2, 0)
 			moved = true
@@ -125,7 +127,7 @@ func (p *Player) Update() {
 			playerObj.Position.X += 2
 			p.Dir = types.Right
 			if p.conn != nil {
-				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_RIGHT, Name: p.Name, RoomID: p.roomID})
+				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_RIGHT, Name: p.Name, RoomID: p.roomID, Player: []*pb.Player{player}})
 				// playerObj.Shape.Move(2, 0)
 			}
 			// fmt.Println(playerObj.Shape.Rotation())
@@ -136,7 +138,7 @@ func (p *Player) Update() {
 		if collision := playerObj.Check(0, -2, "obstacle"); collision == nil {
 			playerObj.Position.Y -= 2
 			if p.conn != nil {
-				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_UP, Name: p.Name, RoomID: p.roomID})
+				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_UP, Name: p.Name, RoomID: p.roomID, Player: []*pb.Player{player}})
 			}
 			// playerObj.Shape.Move(0, -2)
 			moved = true
@@ -146,7 +148,7 @@ func (p *Player) Update() {
 		if collision := playerObj.Check(0, 10, "obstacle"); collision == nil {
 			playerObj.Position.Y += 2
 			if p.conn != nil {
-				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_DOWN, Name: p.Name, RoomID: p.roomID})
+				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_DOWN, Name: p.Name, RoomID: p.roomID, Player: []*pb.Player{player}})
 				// playerObj.Shape.Move(0, 2)
 			}
 			moved = true
@@ -156,9 +158,9 @@ func (p *Player) Update() {
 		p.Weapon.Fire(p.Src.Position, p.Dir, p.Name)
 		if p.conn != nil {
 			if p.Dir == types.Right {
-				conn.Send(&pb.Data{Type: pb.Action_Fire, Data: pb.Direction_RIGHT, Name: p.Name, RoomID: p.roomID})
+				conn.Send(&pb.Data{Type: pb.Action_Fire, Data: pb.Direction_RIGHT, Name: p.Name, RoomID: p.roomID, Player: []*pb.Player{player}})
 			} else {
-				conn.Send(&pb.Data{Type: pb.Action_Fire, Data: pb.Direction_LEFT, Name: p.Name, RoomID: p.roomID})
+				conn.Send(&pb.Data{Type: pb.Action_Fire, Data: pb.Direction_LEFT, Name: p.Name, RoomID: p.roomID, Player: []*pb.Player{player}})
 			}
 		}
 	}
@@ -170,9 +172,9 @@ func (p *Player) Update() {
 	p.Weapon.Update()
 
 	if collision := playerObj.Check(0, 0, "bullet"); collision != nil {
-		if collision.Objects[0].Data != string(p.Name) {
-			playerObj.Position.Y = 70
-			playerObj.Position.X = 60
+		if collision.Objects[0].Data != p.Name {
+			playerObj.Position.X = p.X
+			playerObj.Position.Y = p.Y
 			playerObj.Update()
 		}
 	}
@@ -180,14 +182,15 @@ func (p *Player) Update() {
 }
 
 func (p *Player) Simulate() {
-	fmt.Println("sim player : ", p.Name)
 	playerObj := p.Src
-	playerObj.Update()
+	// playerObj.Update()
 	p.Weapon.Update()
 	if collision := playerObj.Check(0, 0, "bullet"); collision != nil {
-		if collision.Objects[0].Data != string(p.Name) {
-			playerObj.Position.Y = 70
-			playerObj.Position.X = 60
+		// log.Printf("Collision with bullet %+v", *collision.Objects[0])
+		if collision.Objects[0].Data != p.Name {
+			log.Printf("Collision with bullet %+v for player %s", *collision.Objects[0], p.Name)
+			playerObj.Position.X = p.X
+			playerObj.Position.Y = p.Y
 			playerObj.Update()
 		}
 	}
