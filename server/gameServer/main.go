@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -168,16 +169,28 @@ func main() {
 		if err != nil {
 			log.Printf("error creating request : %v", err)
 		}
-		res, err := http.DefaultClient.Do(req)
+		tlsVerification := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client := &http.Client{Transport: tlsVerification}
+
+		res, err := client.Do(req)
 		if err != nil {
 			log.Printf("error making http call : %v", err)
 		}
-		if res.StatusCode != http.StatusOK {
-			body, err := io.ReadAll(res.Body)
-			if err != nil {
-				log.Printf("error parsing response body :%v", err)
+		if res != nil {
+			defer res.Body.Close()
+
+			if res.StatusCode != http.StatusOK {
+				body, err := io.ReadAll(res.Body)
+				if err != nil {
+					log.Printf("error parsing response body :%v", err)
+					return
+				}
+				log.Printf("error in registrating server :%s", string(body))
+				return
 			}
-			log.Fatalf("error in registrating server :%s", string(body))
+			log.Printf("Successfully registered server with root server")
 		}
 	}()
 	// game = make(map[string]Game)
