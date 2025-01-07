@@ -181,6 +181,7 @@ func main() {
 		if flag := serverManager.AddServer(server); !flag {
 			log.Printf("Server already registered url: %s", server.Address)
 			w.WriteHeader(http.StatusOK)
+			return
 		}
 		log.Printf("New server registered url: %s", server.Address)
 		w.WriteHeader(http.StatusOK)

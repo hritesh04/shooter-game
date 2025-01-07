@@ -159,7 +159,7 @@ func main() {
 		server := struct {
 			Address string `json:"address"`
 		}{
-			Address: host + ":" + port,
+			Address: host,
 		}
 		out, err := json.Marshal(server)
 		if err != nil {
