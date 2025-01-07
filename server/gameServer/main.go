@@ -142,7 +142,15 @@ func (s *server) JoinRoom(ctx context.Context, data *pb.Room) (*pb.Room, error) 
 	return &pb.Room{Id: game.ID, Player: players}, nil
 }
 func main() {
-	lis, err := net.Listen("tcp", ":"+os.Getenv("GAME_SERVER_PORT"))
+	host := os.Getenv("GAME_SERVER_HOST")
+	if host == "" {
+		host = "localhost"
+	}
+	port := os.Getenv("GAME_SERVER_PORT")
+	if port == "" {
+		port = "3000"
+	}
+	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("failed to listen : %v", err)
 	}
@@ -150,7 +158,7 @@ func main() {
 		server := struct {
 			Address string `json:"address"`
 		}{
-			Address: "localhost:3000",
+			Address: host + ":" + port,
 		}
 		out, err := json.Marshal(server)
 		if err != nil {

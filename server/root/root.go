@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
 
 	pb "github.com/hritesh04/shooter-game/stubs"
 	"google.golang.org/grpc"
@@ -67,8 +68,14 @@ func (s *ServerManager) GetLeastConnectedServer() Server {
 	return server
 }
 
-func (s *ServerManager) AddServer(server Server) {
+func (s *ServerManager) AddServer(server Server) bool {
+	for _, s := range s.Server {
+		if s.Address == server.Address {
+			return true
+		}
+	}
 	s.Server = append(s.Server, server)
+	return true
 }
 
 func enableCors(w *http.ResponseWriter) {
@@ -83,6 +90,10 @@ func enableCors(w *http.ResponseWriter) {
 // }
 
 func main() {
+	port := os.Getenv("ROOT_SERVER_PORT")
+	if port == "" {
+		port = "3000"
+	}
 	serverManager := &ServerManager{
 		severMap: make(map[string]Server),
 	}
@@ -167,13 +178,16 @@ func main() {
 			http.Error(w, fmt.Errorf("failed to decode body").Error(), http.StatusBadRequest)
 			return
 		}
-		serverManager.AddServer(server)
+		if flag := serverManager.AddServer(server); !flag {
+			log.Printf("Server already registered url: %s", server.Address)
+			w.WriteHeader(http.StatusOK)
+		}
 		log.Printf("New server registered url: %s", server.Address)
 		w.WriteHeader(http.StatusOK)
 	})
 	server := &http.Server{
 		Handler: mux,
-		Addr:    ":3000",
+		Addr:    ":" + port,
 	}
 	log.Printf("Starting Server listening at port %s", server.Addr)
 	if err := server.ListenAndServe(); err != nil {
