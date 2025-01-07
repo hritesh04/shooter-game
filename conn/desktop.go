@@ -59,7 +59,6 @@ func (c *DesktopClient) JoinRoom(ID string) (*pb.Room, error) {
 	join, err := c.client.JoinRoom(ctx, &pb.Room{Id: ID})
 	if err != nil {
 		log.Fatalf("error joining room %v", err)
-		log.Fatalf("error joining room %w", err)
 		return nil, err
 	}
 	return join, nil

@@ -48,6 +48,8 @@ func (s *Server) AddRoom(roomID string) {
 	_, err = client.CreateRoom(ctx, &pb.Room{Id: roomID})
 	if err != nil {
 		log.Printf("error creating room at remote server : %s", s.Address)
+		log.Println(err)
+		return
 	}
 	s.RoomID = append(s.RoomID, roomID)
 }

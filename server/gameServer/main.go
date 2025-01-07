@@ -17,6 +17,7 @@ import (
 	pb "github.com/hritesh04/shooter-game/stubs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/reflection"
 )
 
 type server struct {
@@ -199,6 +200,7 @@ func main() {
 	pb.RegisterMovementEmitterServer(s, &server{
 		GameManger: GameManager{games: make(map[string]*Game)},
 	})
+	reflection.Register(s)
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve : %v", err)
