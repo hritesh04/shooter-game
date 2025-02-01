@@ -18,6 +18,7 @@ type KeyboardInput struct {
 	cooldown      int
 	runes         []rune
 	text          string
+	placeholder   string
 	roomID        string
 	counter       int
 	editable      bool
@@ -34,6 +35,7 @@ func NewKeyBoardInput(ID, ParentScene int, placeholder string, w, h float64, don
 		height:      h,
 		cooldown:    0,
 		text:        placeholder,
+		placeholder: placeholder,
 		counter:     0,
 		editable:    true,
 		doneFunc:    doneFunc,
@@ -86,7 +88,7 @@ func (k *KeyboardInput) Update() int {
 				k.editable = false
 				return k.ID
 			} else {
-				k.text = "Enter the dungeon ID\n"
+				k.text = k.placeholder
 				k.editable = true
 				k.roomID = ""
 				return k.doneFlag
@@ -97,7 +99,7 @@ func (k *KeyboardInput) Update() int {
 	} else {
 		k.cooldown--
 		if k.cooldown <= 0 {
-			k.text = "Enter the dungeon ID\n"
+			k.text = k.placeholder
 			k.roomID = ""
 			k.editable = true
 			k.updateFlag = true

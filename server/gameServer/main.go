@@ -195,7 +195,7 @@ func main() {
 		}
 	}()
 	// game = make(map[string]Game)
-	opts := []grpc.ServerOption{grpc.UnaryInterceptor(corsInterceptor)}
+	opts := []grpc.ServerOption{grpc.UnaryInterceptor(corsInterceptor), grpc.MaxRecvMsgSize(1024 * 1024 * 64), grpc.MaxSendMsgSize(1024 * 1024 * 64)}
 	s := grpc.NewServer(opts...)
 	pb.RegisterMovementEmitterServer(s, &server{
 		GameManger: GameManager{games: make(map[string]*Game)},
