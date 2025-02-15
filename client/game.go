@@ -9,8 +9,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hritesh04/shooter-game/maps"
+	pb "github.com/hritesh04/shooter-game/proto"
 	screen "github.com/hritesh04/shooter-game/scene"
-	pb "github.com/hritesh04/shooter-game/stubs"
 	"github.com/hritesh04/shooter-game/types"
 	"github.com/joho/godotenv"
 )

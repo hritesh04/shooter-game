@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"os"
 
-	pb "github.com/hritesh04/shooter-game/stubs"
+	pb "github.com/hritesh04/shooter-game/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

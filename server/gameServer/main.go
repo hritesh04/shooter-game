@@ -14,8 +14,9 @@ import (
 	"net/http"
 	"os"
 
-	pb "github.com/hritesh04/shooter-game/stubs"
+	pb "github.com/hritesh04/shooter-game/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 )
@@ -146,11 +147,11 @@ func (s *server) JoinRoom(ctx context.Context, data *pb.Room) (*pb.Room, error) 
 func main() {
 	host := os.Getenv("GAME_SERVER_HOST")
 	if host == "" {
-		host = "localhost"
+		host = "shooter-local.acerowl.tech"
 	}
 	port := os.Getenv("GAME_SERVER_PORT")
 	if port == "" {
-		port = "3000"
+		port = "3001"
 	}
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -200,6 +201,7 @@ func main() {
 	pb.RegisterMovementEmitterServer(s, &server{
 		GameManger: GameManager{games: make(map[string]*Game)},
 	})
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stderr, os.Stderr))
 	reflection.Register(s)
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {

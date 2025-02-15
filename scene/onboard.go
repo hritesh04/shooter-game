@@ -294,9 +294,10 @@ func (o *Onboard) CreateRoom() func(string) error {
 		if err != nil {
 			return fmt.Errorf("error creating request")
 		}
+		log.Println("Making create room request to : ", os.Getenv("ROOT_SERVER_URL"))
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return fmt.Errorf("error making request")
+			return fmt.Errorf("error making request", err)
 		}
 		defer res.Body.Close()
 		if res.StatusCode != http.StatusOK {
@@ -312,6 +313,7 @@ func (o *Onboard) CreateRoom() func(string) error {
 			return fmt.Errorf("response decoding failed %w", err)
 		}
 		defer res.Body.Close()
+		log.Printf("Game server address received : %s", player.Address)
 		o.Game.SetServerInfo(player.RoomID, player.Address)
 		return nil
 	}

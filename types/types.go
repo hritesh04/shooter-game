@@ -5,7 +5,7 @@ import (
 	"embed"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	pb "github.com/hritesh04/shooter-game/stubs"
+	pb "github.com/hritesh04/shooter-game/proto"
 	"google.golang.org/grpc"
 )
 

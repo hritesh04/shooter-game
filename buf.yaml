@@ -1,0 +1,4 @@
+version: v1
+name: buf.build/hritesh04/shooter-game
+deps:
+  - buf.build/googleapis/googleapis

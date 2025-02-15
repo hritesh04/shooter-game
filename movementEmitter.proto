@@ -1,6 +1,7 @@
 syntax="proto3";
 
-option go_package="./";
+option go_package="github.com/hritesh04/shooter-game/proto";
+import "google/api/annotations.proto";
 
 package serverrpc;
 
@@ -21,11 +22,26 @@ enum Direction {
 
 service MovementEmitter {
     // from client send roomID,name get game events
-    rpc SendMove(stream Data) returns (stream Data) {}
+    rpc SendMove(stream Data) returns (stream Data) {
+	option (google.api.http) = {
+	post: "/v1/sendMove"
+	body: "*"
+	};
+    }
     // from root to create room
-    rpc CreateRoom(Room) returns (Player) {}
+    rpc CreateRoom(Room) returns (Player) {
+	option (google.api.http) = {
+	post: "/v1/createRoom"
+	body: "*"
+	};	
+    }
     // from client to get name and position
-    rpc JoinRoom(Room) returns (Room) {}
+    rpc JoinRoom(Room) returns (Room) {
+	option (google.api.http) = {
+	post: "/v1/joinRoom"
+	body: "*"
+	};	
+    }
 }
 
 message Data {

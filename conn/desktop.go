@@ -5,7 +5,7 @@ import (
 	"io"
 	"log"
 
-	pb "github.com/hritesh04/shooter-game/stubs"
+	pb "github.com/hritesh04/shooter-game/proto"
 	"github.com/hritesh04/shooter-game/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

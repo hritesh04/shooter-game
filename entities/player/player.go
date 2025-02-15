@@ -8,7 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hritesh04/shooter-game/entities/weapon"
-	pb "github.com/hritesh04/shooter-game/stubs"
+	pb "github.com/hritesh04/shooter-game/proto"
 	"github.com/hritesh04/shooter-game/types"
 	input "github.com/quasilyte/ebitengine-input"
 	"github.com/solarlune/resolv"

@@ -13,7 +13,7 @@ import (
 	"github.com/hritesh04/shooter-game/conn"
 	"github.com/hritesh04/shooter-game/entities/player"
 	"github.com/hritesh04/shooter-game/maps/common"
-	pb "github.com/hritesh04/shooter-game/stubs"
+	pb "github.com/hritesh04/shooter-game/proto"
 	"github.com/hritesh04/shooter-game/types"
 	"github.com/solarlune/resolv"
 )
