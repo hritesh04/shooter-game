@@ -24,8 +24,7 @@ service MovementEmitter {
     // from client send roomID,name get game events
     rpc SendMove(stream Data) returns (stream Data) {
 	option (google.api.http) = {
-	post: "/v1/sendMove"
-	body: "*"
+	get: "/v1/sendMove"
 	};
     }
     // from root to create room
