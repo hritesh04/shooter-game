@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -23,6 +25,7 @@ type PlayerRequest struct {
 type PlayerResponse struct {
 	RoomID  string `json:"roomID"`
 	Address string `json:"address"`
+	Type    string `json:"type"`
 }
 
 type ErrorResponse struct {
@@ -33,25 +36,48 @@ type ErrorResponse struct {
 type Server struct {
 	Address          string   `json:"address"`
 	RoomID           []string `json:"roomID"`
+	Type             string   `json:"type"`
 	ActiveConnection int      `json:"activeConnection"`
 	MaxConnection    int      `json:"maxConnection"`
 }
 
-func (s *Server) AddRoom(roomID string) {
-	conn, err := grpc.NewClient(s.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatalf("error creating coonnection,%v", err)
-		return
-	}
-	client := pb.NewMovementEmitterClient(conn)
-	ctx := context.Background()
-	_, err = client.CreateRoom(ctx, &pb.Room{Id: roomID})
-	if err != nil {
-		log.Printf("error creating room at remote server : %s", s.Address)
-		log.Println(err)
-		return
+func (s *Server) AddRoom(roomID string) error {
+	if s.Type == "grpc" {
+		conn, err := grpc.NewClient(s.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Fatalf("error creating coonnection,%v", err)
+			return errors.New("error connecting to grpc game server")
+		}
+		client := pb.NewMovementEmitterClient(conn)
+		ctx := context.Background()
+		_, err = client.CreateRoom(ctx, &pb.Room{Id: roomID})
+		if err != nil {
+			log.Printf("error creating room at remote server : %s", s.Address)
+			log.Println(err)
+			return errors.New("error creating room at grpc gamer server")
+		}
+	} else {
+		data, err := json.Marshal(&pb.Room{Id: roomID})
+		fmt.Println(data)
+		if err != nil {
+			log.Printf("Error marshaling req %v", err)
+			return errors.New("error marshaling request")
+		}
+		req, err := http.NewRequest(http.MethodPost, "http://"+s.Address+"/v1/createRoom", bytes.NewReader(data))
+		if err != nil {
+			log.Println("error creating request", err)
+			return errors.New("error creating request")
+		}
+		client := &http.Client{}
+		res, err := client.Do(req)
+		if err != nil {
+			log.Println("error making request", err)
+			return errors.New("error making request to game server")
+		}
+		defer res.Body.Close()
 	}
 	s.RoomID = append(s.RoomID, roomID)
+	return nil
 }
 
 type ServerManager struct {
@@ -84,13 +110,6 @@ func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 }
 
-// func init() {
-// 	err := godotenv.Load(".env")
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// }
-
 func main() {
 	port := os.Getenv("ROOT_SERVER_PORT")
 	if port == "" {
@@ -108,30 +127,27 @@ func main() {
 		}
 		decoder := json.NewDecoder(r.Body)
 		var player PlayerRequest
-		var roomID string
 		if err := decoder.Decode(&player); err != nil {
 			w.WriteHeader(http.StatusBadGateway)
 			w.Write([]byte("Invalid Input"))
 		}
 		server := serverManager.GetLeastConnectedServer()
-		if roomID == "" {
-			roomID = generateSecureID()
+		if player.RoomID == "" {
+			player.RoomID = generateSecureID()
 		}
-		if _, ok := serverManager.severMap[roomID]; ok {
-			roomID = generateSecureID()
+		if _, ok := serverManager.severMap[player.RoomID]; ok {
+			player.RoomID = generateSecureID()
 		}
-		server.AddRoom(roomID)
-		serverManager.severMap[roomID] = server
-		// w.WriteHeader(http.StatusOK)
+		if err := server.AddRoom(player.RoomID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		serverManager.severMap[player.RoomID] = server
 		response := PlayerResponse{
 			Address: server.Address,
-			RoomID:  roomID,
+			Type:    server.Type,
+			RoomID:  player.RoomID,
 		}
-		// result, err := json.Marshal(&response)
-		// if err != nil {
-		// 	http.Error(w, "error marshaling response", http.StatusInternalServerError)
-		// 	return
-		// }
 		log.Printf("New room created: %s at server: %s", response.RoomID, response.Address)
 		w.WriteHeader(http.StatusOK)
 		writeJSON(w, response)
@@ -159,11 +175,6 @@ func main() {
 			RoomID:  player.RoomID,
 		}
 		log.Printf("New join room request current count %d", server.ActiveConnection)
-		// result, err := json.Marshal(&response)
-		// if err != nil {
-		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	return
-		// }
 		log.Printf("New player joined room: %s at server: %s", response.RoomID, response.Address)
 		w.WriteHeader(http.StatusOK)
 		writeJSON(w, response)

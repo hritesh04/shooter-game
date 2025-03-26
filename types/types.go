@@ -17,7 +17,7 @@ type Game interface {
 	GetDevice() Device
 	GetFS() embed.FS
 	GetClient() *pb.MovementEmitterClient //
-	SetServerInfo(string, string)
+	SetServerInfo(string, string, string)
 	TogglePopUp(bool)
 }
 
@@ -25,7 +25,7 @@ type IMap interface {
 	Init()
 	Update() error
 	Draw(*ebiten.Image)
-	JoinRoom(string, string) error
+	JoinRoom(string, string, string) error
 	ListenCommand(string, string)
 }
 
