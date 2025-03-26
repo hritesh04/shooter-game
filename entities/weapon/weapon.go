@@ -105,13 +105,9 @@ func (w *Weapon) Fire(location resolv.Vector, direction types.Direction, by stri
 	}
 	w.Space.Add(bullet)
 	w.obstacles = append(w.obstacles, bullet)
-	// go w.Update(bullet)
 }
 
-// func (w *Weapon) Update(bullet *resolv.Object) {
 func (w *Weapon) Update() {
-
-	// for {
 	for _, bullet := range w.obstacles {
 		if collision := bullet.Check(0, 0, "obstacle"); collision != nil {
 			w.Space.Remove(bullet)

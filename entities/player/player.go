@@ -63,12 +63,7 @@ func NewPlayer(name string, w float64, h float64, index int, space *resolv.Space
 			log.Fatal(err)
 		}
 	}
-	// var player *resolv.Object
 	player := resolv.NewObject(w, h, 20, 28, "player")
-	// if index == 0 {
-	// } else {
-	// 	player = resolv.NewObject(16*36*2+20, 16*19*2, 20, 28, "player")
-	// }
 	space.Add(player)
 	return &Player{
 		Name:   name,
@@ -86,23 +81,15 @@ func (p *Player) Init() {
 	inputSystem := input.System{}
 	inputSystem.Init(input.SystemConfig{DevicesEnabled: input.AnyDevice})
 	p.Input = inputSystem.NewHandler(0, keymap)
-	// conn := p.conn.GetEventConn()
-	// // do in seperate
-	// conn.Send(&pb.Data{Type: pb.Action_Join, RoomID: p.roomID, Name: p.Name})
-	// if err := p.conn.Send(&pb.Data{Type: pb.Action_Join, RoomID: p.roomID, Name: p.Name}); err != nil {
-	// log.Println("Error setting up stream")
-	// }
 	p.Weapon.Init()
 }
 
 func (p *Player) AddStream() {
 	conn := p.conn.GetEventConn()
-	// do in seperate
 	conn.Send(&pb.Data{Type: pb.Action_Join, RoomID: p.roomID, Name: p.Name})
 }
 
 func (p *Player) Update() {
-	// p.Input.EmitKeyEvent(input.SimulatedKeyEvent{})
 	playerObj := p.Src
 	moved := false
 	player := &pb.Player{Name: p.Name, X: float32(p.Src.Position.X), Y: float32(p.Src.Position.Y)}
@@ -110,7 +97,6 @@ func (p *Player) Update() {
 	if p.conn != nil {
 		conn = p.conn.GetEventConn()
 	}
-	// fmt.Println("PLAYER UPDATE")
 	if p.Input.ActionIsPressed(ActionMoveLeft) {
 		if collision := playerObj.Check(-2, 0, "obstacle"); collision == nil {
 			playerObj.Position.X -= 2
@@ -118,7 +104,6 @@ func (p *Player) Update() {
 			if p.conn != nil {
 				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_LEFT, Name: p.Name, RoomID: p.roomID, Player: []*pb.Player{player}})
 			}
-			// playerObj.Shape.Move(-2, 0)
 			moved = true
 		}
 	}
@@ -128,9 +113,7 @@ func (p *Player) Update() {
 			p.Dir = types.Right
 			if p.conn != nil {
 				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_RIGHT, Name: p.Name, RoomID: p.roomID, Player: []*pb.Player{player}})
-				// playerObj.Shape.Move(2, 0)
 			}
-			// fmt.Println(playerObj.Shape.Rotation())
 			moved = true
 		}
 	}
@@ -140,7 +123,6 @@ func (p *Player) Update() {
 			if p.conn != nil {
 				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_UP, Name: p.Name, RoomID: p.roomID, Player: []*pb.Player{player}})
 			}
-			// playerObj.Shape.Move(0, -2)
 			moved = true
 		}
 	}
@@ -149,7 +131,6 @@ func (p *Player) Update() {
 			playerObj.Position.Y += 2
 			if p.conn != nil {
 				conn.Send(&pb.Data{Type: pb.Action_Movement, Data: pb.Direction_DOWN, Name: p.Name, RoomID: p.roomID, Player: []*pb.Player{player}})
-				// playerObj.Shape.Move(0, 2)
 			}
 			moved = true
 		}
@@ -183,10 +164,8 @@ func (p *Player) Update() {
 
 func (p *Player) Simulate() {
 	playerObj := p.Src
-	// playerObj.Update()
 	p.Weapon.Update()
 	if collision := playerObj.Check(0, 0, "bullet"); collision != nil {
-		// log.Printf("Collision with bullet %+v", *collision.Objects[0])
 		if collision.Objects[0].Data != p.Name {
 			log.Printf("Collision with bullet %+v for player %s", *collision.Objects[0], p.Name)
 			playerObj.Position.X = p.X
