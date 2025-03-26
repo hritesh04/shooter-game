@@ -47,7 +47,6 @@ type Onboard struct {
 	Obstacles         []*resolv.Object
 	Show              chan bool
 	Done              chan bool
-	// Client        pb.MovementEmitterClient
 }
 
 func NewOnBoardingScreen(ID, ParentScene int, game types.Game, fs embed.FS, show chan bool) *Onboard {
@@ -81,10 +80,9 @@ func NewOnBoardingScreen(ID, ParentScene int, game types.Game, fs embed.FS, show
 		Assets:            fs,
 		Index:             Onboarding,
 		collisionCoolDown: 0,
-		// Client:     game.GetClient(),
-		SceneStart: false,
-		Show:       show,
-		Done:       make(chan bool),
+		SceneStart:        false,
+		Show:              show,
+		Done:              make(chan bool),
 	}
 
 	if err := json.Unmarshal(mapFile, scence.MapJson); err != nil {
@@ -181,13 +179,9 @@ func (o *Onboard) Update() int {
 		if o.collisionCoolDown <= 0 {
 			playerObj := o.Player.Src
 			if isScene, scene := checkJoinRoom(playerObj); isScene {
-				// if o.SceneStart {
-				// 	o.SceneStart = false
 				fmt.Println("collission detected ", scene)
 				o.collisionCoolDown = 60
-				// }
 				o.Index = scene
-				// fmt.Println("join scene detected", o.Index)
 				return o.ID
 			}
 		}
@@ -200,21 +194,7 @@ func (o *Onboard) Update() int {
 		} else {
 			o.Index = screen
 		}
-		// fmt.Println("ID after update ", o.Index)
-		// fmt.Println("index after keyboard update ", o.Index)
-		// if o.Index == Onboarding {
-		// 	o.SceneStart = false
-		// }
 	}
-	// select {
-	// case <-o.Done:
-	// 	o.SceneStart = false
-	// 	go func() {
-	// 		// time.Sleep(time.Second * 2)
-	// 		o.Show <- true
-	// 	}()
-	// default:
-	// }
 	return o.ID
 }
 
@@ -227,18 +207,6 @@ func checkJoinRoom(player *resolv.Object) (bool, int) {
 	}
 	return false, 2
 }
-
-// func (o *Onboard) JoinRoom() types.GrpcFunc {
-// 	return func(ctx context.Context, data *pb.Room) (*pb.Player, error) {
-// 		conn, err := o.Client.CreateRoom(ctx, data)
-// 		if err != nil {
-// 			log.Fatalf("could not greet: %v", err)
-// 		}
-// 		o.Game.SetRoomID(conn.GetName())
-// 		// log.Printf("Greeting: %s", conn.GetName())
-// 		return &pb.Player{}, nil
-// 	}
-// }
 
 func (o *Onboard) JoinRoom() func(string) error {
 	return func(data string) error {
@@ -265,20 +233,13 @@ func (o *Onboard) JoinRoom() func(string) error {
 			return fmt.Errorf(string(body))
 		}
 		decoder := json.NewDecoder(res.Body)
-		var player map[string]interface{}
+		var player PlayerResponse
 		if err := decoder.Decode(&player); err != nil {
 			return fmt.Errorf("response decoding failed")
 		}
 		defer res.Body.Close()
-		o.Game.SetServerInfo(player["roomID"].(string), player["address"].(string))
+		o.Game.SetServerInfo(player.RoomID, player.Address, player.Type)
 		return nil
-		// conn, err := o.Client.CreateRoom(ctx, data)
-		// if err != nil {
-		// 	log.Fatalf("could not greet: %v", err)
-		// }
-		// o.Game.SetRoomID(conn.GetName())
-		// log.Printf("Greeting: %s", conn.GetName())
-		// return &pb.Player{}, nil
 	}
 }
 
@@ -314,7 +275,7 @@ func (o *Onboard) CreateRoom() func(string) error {
 		}
 		defer res.Body.Close()
 		log.Printf("Game server address received : %s", player.Address)
-		o.Game.SetServerInfo(player.RoomID, player.Address)
+		o.Game.SetServerInfo(player.RoomID, player.Address, player.Type)
 		return nil
 	}
 }
@@ -322,6 +283,7 @@ func (o *Onboard) CreateRoom() func(string) error {
 type PlayerResponse struct {
 	RoomID  string `json:"roomID"`
 	Address string `json:"address"`
+	Type    string `json:"type"`
 }
 
 func (o *Onboard) Draw(screen *ebiten.Image) {
@@ -339,14 +301,10 @@ func (o *Onboard) Draw(screen *ebiten.Image) {
 
 				tx := w/2 - w/4
 				ty := h/2 - h/3
-				// srcX := (id % 16) * 32
-				// srcY := (id / 6) * 32
-				// fmt.Printf("x:%d\ty%d\n", srcX, srcY)
 				opts.GeoM.Reset()
 				opts.GeoM.Scale(1.8, 1.8)
 				opts.GeoM.Translate(x*1.8+tx, y+ty)
 				screen.DrawImage(o.PlayerImage.SubImage(image.Rect(0, 0, 32, 32)).(*ebiten.Image), &opts)
-				// screen.DrawImage(o.PlayerImage.SubImage(image.Rect(8, 5, 16, 16)).(*ebiten.Image), &opts)
 				continue
 			}
 		}

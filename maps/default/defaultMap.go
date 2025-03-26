@@ -18,8 +18,6 @@ import (
 	"github.com/solarlune/resolv"
 )
 
-//embed them using file system screenshot
-
 type DefaultMap struct {
 	Game          types.Game
 	MapJson       *common.TiledMapJSON
@@ -32,10 +30,9 @@ type DefaultMap struct {
 	Device        types.Device
 	Assets        embed.FS
 	name          string
-	// Client        pb.MovementEmitterClient
-	Conn   types.IConnection
-	Rec    chan *pb.Data
-	Sender chan *pb.Data
+	Conn          types.IConnection
+	Rec           chan *pb.Data
+	Sender        chan *pb.Data
 }
 
 func NewDefaultMap(game types.Game) types.IMap {
@@ -59,9 +56,8 @@ func NewDefaultMap(game types.Game) types.IMap {
 		TileImage: tileImage,
 		Assets:    fs,
 		Players:   make(map[string]*player.Player),
-		// Client:    game.GetClient(),
-		Rec:    make(chan *pb.Data),
-		Sender: make(chan *pb.Data),
+		Rec:       make(chan *pb.Data),
+		Sender:    make(chan *pb.Data),
 	}
 	if err := json.Unmarshal(mapFile, tileMap.MapJson); err != nil {
 		log.Fatal(err)
@@ -77,23 +73,6 @@ func (m *DefaultMap) Init() {
 	cellSize := 16
 
 	m.Space = resolv.NewSpace(int(gw), int(gh), cellSize, cellSize)
-
-	// create player
-	// create connection to send moves
-	// pass the send function to player obj
-	// so player mov the mov will be send to the server
-	// go func to get player info to add
-	// for i := 0; i < 2; i++ {
-	// 	if i == 0 {
-	// 		player := player.NewPlayer(60, 70, i, m.Space, m.Device, m.Assets)
-	// 		player.Init()
-	// 		m.Players = append(m.Players, player)
-	// 	} else {
-	// 		player := player.NewPlayer(1172, 608, i, m.Space, m.Device, m.Assets)
-	// 		player.Init()
-	// 		m.Players = append(m.Players, player)
-	// 	}
-	// }
 
 	m.Width = m.MapJson.Layers[0].Width * 16
 	m.Height = len(m.MapJson.Layers[0].Data) / m.MapJson.Layers[0].Width * 16
@@ -121,20 +100,26 @@ func (m *DefaultMap) Init() {
 		m.Obstacles = append(m.Obstacles, obstacle)
 		m.Space.Add(obstacle)
 	}
-	// go m.ListenCommand()
 }
 
-func (m *DefaultMap) JoinRoom(address, ID string) error {
-	m.Conn = conn.NewGrpcClient(address, m.Device)
-	join, err := m.Conn.JoinRoom(ID)
-	if err != nil {
-		log.Fatal(err)
-		log.Fatalf("error joining room %v", err)
-		return err
+func (m *DefaultMap) JoinRoom(address, ID, connType string) error {
+	var join *pb.Room
+	var err error
+	if connType == "grpc" {
+		log.Println("Making Grpc connection")
+		m.Conn = conn.NewGrpcClient(address, m.Device)
+		join, err = m.Conn.JoinRoom(ID)
+		if err != nil {
+			log.Println("Error joining room with grpc :%s", err.Error())
+		}
+	} else {
+		log.Println("Making websocket connection : ")
+		m.Conn = conn.NewRestClient(address, m.Device)
+		join, err = m.Conn.JoinRoom(ID)
+		if err != nil {
+			log.Println("Error joining room with http connection :%s", err.Error())
+		}
 	}
-	// conn := m.Conn.GetEventConn()
-	// // do in seperate
-	// conn.Send(&pb.Data{Type: pb.Action_Join, RoomID: ID, Name: join.GetName()})
 	for _, p := range join.GetPlayer() {
 		m.name = p.GetName()
 		player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets, m.Conn, ID)
@@ -145,80 +130,13 @@ func (m *DefaultMap) JoinRoom(address, ID string) error {
 	return nil
 }
 
-// func (m *DefaultMap) ListenCommand(address, ID string) {
-// 	client := common.NewGrpcClient(address)
-// 	ctx := context.Background()
-// 	log.Printf("Backend URL : %s for room %s", address, ID)
-
-// 	conn, err := client.SendMove(ctx)
-// 	if err != nil {
-// 		log.Fatalf("error make function call %v", err)
-// 	}
-// 	go func() {
-// 		// first req from client to join with player name and roomID
-// 		// m.Sender <- &pb.Data{Type: pb.Action_Join, RoomID: ID, Name: join.Name}
-// 		for {
-// 			resp, err := conn.Recv()
-// 			// first res if type info add player if game.player.name != this.name
-// 			log.Printf("received data from move :%v", resp)
-// 			if err == io.EOF {
-// 				break
-// 			}
-// 			if err != nil {
-// 				log.Fatalf("receiving Streaming message: %v", err)
-// 			}
-// 			switch resp.Type {
-// 			case pb.Action_Join:
-// 				log.Printf("New player joined : %+v", resp.Player)
-// 				players := resp.GetPlayer()
-// 				for _, p := range players {
-// 					player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets)
-// 					player.Init()
-// 					m.Players[p.GetName()] = player
-// 					// m.Players = append(m.Players, player)
-// 				}
-// 				break
-// 			case pb.Action_Info:
-// 				p := resp.GetPlayer()[0]
-// 				player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets)
-// 				player.Init()
-// 				m.Players[p.GetName()] = player
-// 				// m.Players = append(m.Players, player)
-// 				break
-// 			}
-// 			// m.Rec <- resp
-// 		}
-// 	}()
-// 	for {
-// 		data := <-m.Sender
-// 		log.Printf("sending data from move :%v", data)
-// 		err := conn.Send(data)
-// 		if err == io.EOF {
-// 			// Bidi streaming RPC errors happen and make Send return io.EOF,
-// 			// not the RPC error itself.  Call Recv to determine the error.
-// 			break
-// 		}
-// 		if err != nil {
-// 			// Some local errors are reported this way, e.g. errors serializing
-// 			// the request message.
-// 			log.Fatalf("sending Streaming message: %v", err)
-// 		}
-// 	}
-// 	err = conn.CloseSend()
-// 	if err != nil {
-// 		log.Fatalf("cannot close send: %w", err)
-// 	}
-// }
-
 func (m *DefaultMap) ListenCommand(address, ID string) {
 	conn := m.Conn.GetEventConn()
 	log.Printf("Backend URL : %s for room %s", address, ID)
 	go func() {
-		// first req from client to join with player name and roomID
-		// m.Sender <- &pb.Data{Type: pb.Action_Join, RoomID: ID, Name: join.Name}
 		for {
 			resp, err := conn.Recv()
-			// first res if type info add player if game.player.name != this.name
+
 			log.Printf("received data from move :%v", resp)
 			if err == io.EOF {
 				break
@@ -234,7 +152,6 @@ func (m *DefaultMap) ListenCommand(address, ID string) {
 					player := player.NewPlayer(p.GetName(), float64(p.GetX()), float64(p.GetY()), 0, m.Space, m.Device, m.Assets, nil, ID)
 					player.Init()
 					m.Players[p.GetName()] = player
-					// m.Players = append(m.Players, player)
 				}
 			case pb.Action_Movement:
 				players := resp.GetPlayer()
@@ -266,8 +183,6 @@ func (m *DefaultMap) ListenCommand(address, ID string) {
 }
 
 func (m *DefaultMap) Update() error {
-	// fmt.Println("MAP UPDATE")
-	// if len(m.Players) > 0 {
 	for name, player := range m.Players {
 		if name == m.name {
 			player.Update()
@@ -275,7 +190,6 @@ func (m *DefaultMap) Update() error {
 			player.Simulate()
 		}
 	}
-	// }
 	return nil
 }
 
