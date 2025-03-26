@@ -43,6 +43,7 @@ type Game struct {
 	Client        *pb.MovementEmitterClient
 	Popup         chan bool
 	Address       string
+	Type          string
 }
 
 func init() {
@@ -68,7 +69,6 @@ func NewGame(device types.Device) *Game {
 	}
 	g.Screens = []types.IScreen{screen.NewOnBoardingScreen(Onboarding, World, g, assets, g.Popup), screen.NewWinnerScreen(g)}
 	g.World = maps.NewMap(maps.NewDefMap, g)
-	// g.BoardingUI = ui.InitBoardingUI()
 	return g
 }
 
@@ -76,25 +76,15 @@ func (g *Game) GetSize() (float64, float64) {
 	return float64(g.Width), float64(g.Height)
 }
 
-// func (g *Game) Connect() {
-// 	conn, err := grpc.NewClient(":3000", grpc.WithTransportCredentials(insecure.NewCredentials()))
-// 	if err != nil {
-// 		log.Fatalf("error creating coonnection,%v", err)
-// 	}
-// 	defer conn.Close()
-
-// 	g.Client := pb.NewMovementEmitterClient(conn)
-// }
-
 func (g *Game) GetClient() *pb.MovementEmitterClient {
 	return g.Client
 }
 
-func (g *Game) SetServerInfo(ID, address string) {
+func (g *Game) SetServerInfo(ID, address, connType string) {
 	g.RoodID = ID
 	g.Address = address
-	// g.Client = NewGrpcClient(address)
-	if err := g.World.JoinRoom(address, ID); err != nil {
+	g.Type = connType
+	if err := g.World.JoinRoom(address, ID, connType); err != nil {
 		log.Println("Failed to join room")
 		return
 	}
@@ -109,19 +99,7 @@ func (g *Game) Update() error {
 		g.World.Update()
 	} else {
 		g.SceneIndex = g.Screens[g.SceneIndex].Update()
-		// fmt.Println("Game scene index ", g.SceneIndex)
 	}
-
-	// if !g.ShowPopup {
-	// }
-	// if g.ShowPopup {
-	// 	select {
-	// 	case <-g.Popup:
-	// 		g.ShowPopup = false
-	// 	default:
-	// 	}
-	// }
-	// g.BoardingUI.Update()
 	return nil
 }
 
@@ -134,7 +112,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.ShowPopup {
 		g.Screens[g.SceneIndex].Draw(screen)
 	}
-	// g.BoardingUI.Draw(screen)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {

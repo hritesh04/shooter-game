@@ -1,20 +1,23 @@
 package conn
 
 import (
+	"github.com/hritesh04/shooter-game/conn/grpc"
+	"github.com/hritesh04/shooter-game/conn/rest"
 	"github.com/hritesh04/shooter-game/types"
 )
 
-// type Connection struct {
-// 	Device string
-// 	// client pb.MovementEmitterClient
-// 	Conn types.IConnections
-// }
+var grpcClient = map[types.Device]func(string) types.IConnection{
+	types.Desktop: grpc.NewGrpcDesktopClient,
+}
 
-var clients = map[types.Device]func(string) types.IConnection{
-	types.Desktop: NewDesktopGrpcClient,
-	// types.Web:     NewJSGrpcClient,
+var restClient = map[types.Device]func(string) types.IConnection{
+	types.Desktop: rest.NewRestDesktopClient,
 }
 
 func NewGrpcClient(address string, device types.Device) types.IConnection {
-	return clients[device](address)
+	return grpcClient[device](address)
+}
+
+func NewRestClient(address string, device types.Device) types.IConnection {
+	return restClient[device](address)
 }
