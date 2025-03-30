@@ -179,7 +179,6 @@ func (o *Onboard) Update() int {
 		if o.collisionCoolDown <= 0 {
 			playerObj := o.Player.Src
 			if isScene, scene := checkJoinRoom(playerObj); isScene {
-				fmt.Println("collission detected ", scene)
 				o.collisionCoolDown = 60
 				o.Index = scene
 				return o.ID
