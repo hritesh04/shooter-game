@@ -1,8 +1,6 @@
 package player
 
 import (
-	"fmt"
-
 	pb "github.com/hritesh04/shooter-game/proto"
 )
 
@@ -23,11 +21,9 @@ func NewPlayer(name string, x, y int64) Player {
 
 func (p *Player) AddStream(stream pb.MovementEmitter_SendMoveServer) {
 	p.Conn = stream
-	fmt.Println("Stream added")
 }
 
 func (p *Player) UpdateLoc(player *pb.Player) {
 	p.X = float64(player.GetX())
 	p.Y = float64(player.GetY())
-	fmt.Println(player)
 }

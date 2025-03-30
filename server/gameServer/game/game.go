@@ -3,7 +3,6 @@ package game
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"log"
 
 	pb "github.com/hritesh04/shooter-game/proto"
@@ -41,7 +40,6 @@ func (g *Game) AddPlayer() *players.Player {
 		player = players.NewPlayer(generateSecureID(), 60, 70)
 	} else {
 		player = players.NewPlayer(generateSecureID(), 1172, 608)
-		fmt.Printf("%+v", g.Players)
 		for _, p := range g.Players {
 			log.Printf("Player %s data sent to %s\n", player.Name, p.Name)
 			p.Conn.Send(&pb.Data{Type: pb.Action_Info, Player: []*pb.Player{{Name: player.Name, X: float32(player.X), Y: float32(player.Y)}}})
@@ -53,7 +51,6 @@ func (g *Game) AddPlayer() *players.Player {
 }
 
 func (g *Game) GetPlayer(name string) *players.Player {
-	fmt.Println("Get Player")
 	for i := range g.Players {
 		if g.Players[i].Name == name {
 			return &g.Players[i]

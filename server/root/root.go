@@ -58,7 +58,6 @@ func (s *Server) AddRoom(roomID string) error {
 		}
 	} else {
 		data, err := json.Marshal(&pb.Room{Id: roomID})
-		fmt.Println(data)
 		if err != nil {
 			log.Printf("Error marshaling req %v", err)
 			return errors.New("error marshaling request")
@@ -81,16 +80,17 @@ func (s *Server) AddRoom(roomID string) error {
 }
 
 type ServerManager struct {
-	severMap map[string]Server
-	Server   []Server
+	severMap map[string]*Server
+	Server   []*Server
 }
 
-func (s *ServerManager) GetLeastConnectedServer() Server {
+func (s *ServerManager) GetLeastConnectedServer() *Server {
 	leastConn := math.MaxInt
-	var server Server
-	for _, s := range s.Server {
-		if s.ActiveConnection < leastConn {
-			server = s
+	var server *Server
+	for _, v := range s.Server {
+		if v.ActiveConnection < leastConn {
+			server = v
+			leastConn = v.ActiveConnection
 		}
 	}
 	return server
@@ -102,7 +102,7 @@ func (s *ServerManager) AddServer(server Server) bool {
 			return true
 		}
 	}
-	s.Server = append(s.Server, server)
+	s.Server = append(s.Server, &server)
 	return true
 }
 
@@ -116,7 +116,7 @@ func main() {
 		port = "3000"
 	}
 	serverManager := &ServerManager{
-		severMap: make(map[string]Server),
+		severMap: make(map[string]*Server),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/createRoom", func(w http.ResponseWriter, r *http.Request) {
@@ -142,13 +142,14 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		server.ActiveConnection++
 		serverManager.severMap[player.RoomID] = server
 		response := PlayerResponse{
 			Address: server.Address,
 			Type:    server.Type,
 			RoomID:  player.RoomID,
 		}
-		log.Printf("New room created: %s at server: %s", response.RoomID, response.Address)
+		log.Printf("New room '%s' created at server: '%s'", response.RoomID, response.Address)
 		w.WriteHeader(http.StatusOK)
 		writeJSON(w, response)
 	})
@@ -172,10 +173,10 @@ func main() {
 		server.ActiveConnection++
 		response := PlayerResponse{
 			Address: server.Address,
+			Type:    server.Type,
 			RoomID:  player.RoomID,
 		}
-		log.Printf("New join room request current count %d", server.ActiveConnection)
-		log.Printf("New player joined room: %s at server: %s", response.RoomID, response.Address)
+		log.Printf("New player joined room '%s' at server: '%s'", response.RoomID, response.Address)
 		w.WriteHeader(http.StatusOK)
 		writeJSON(w, response)
 	})
@@ -192,11 +193,11 @@ func main() {
 			return
 		}
 		if flag := serverManager.AddServer(server); !flag {
-			log.Printf("Server already registered url: %s", server.Address)
+			log.Printf("Server already registered at : '%s'", server.Address)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		log.Printf("New server registered url: %s", server.Address)
+		log.Printf("New '%s' server registered at : '%s'", server.Type, server.Address)
 		w.WriteHeader(http.StatusOK)
 	})
 	server := &http.Server{

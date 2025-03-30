@@ -30,11 +30,11 @@ type WebSocketenvelope struct {
 }
 
 type WebSocketMessage struct {
-	Type   string   `json:"type"`
-	Data   string   `json:"data"`
-	Name   string   `json:"name,omitempty"`
-	RoomID string   `json:"roomID,omitempty"`
-	Player []Player `json:"player,omitempty"`
+	Type   string       `json:"type"`
+	Data   string       `json:"data"`
+	Name   string       `json:"name,omitempty"`
+	RoomID string       `json:"roomID,omitempty"`
+	Player []*pb.Player `json:"player,omitempty"`
 }
 
 type Player struct {
@@ -71,11 +71,10 @@ func (c Connection) Recv() (*pb.Data, error) {
 		Data: convertStringToDirection(wsMessage.Result.Data),
 	}
 	players := make([]*pb.Player, len(wsMessage.Result.Player))
-	for _, p := range wsMessage.Result.Player {
-		players = append(players, &pb.Player{Name: p.Name, X: float32(p.X), Y: float32(p.Y)})
+	for i, p := range wsMessage.Result.Player {
+		players[i] = &pb.Player{Name: p.Name, X: float32(p.X), Y: float32(p.Y)}
 	}
 	pbData.Player = players
-	fmt.Println(pbData.String())
 	return &pbData, nil
 }
 
