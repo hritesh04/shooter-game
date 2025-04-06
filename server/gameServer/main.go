@@ -14,6 +14,7 @@ import (
 	pb "github.com/hritesh04/shooter-game/proto"
 	manager "github.com/hritesh04/shooter-game/server/gameServer/manager"
 	"github.com/hritesh04/shooter-game/server/gameServer/utils"
+	"github.com/rs/cors"
 	"github.com/tmc/grpc-websocket-proxy/wsproxy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -95,7 +96,7 @@ func main() {
 		go utils.RegisterServer(&wg, host+":"+port, "grpc")
 	} else {
 		log.Println("Running in websocket mode")
-		go utils.RegisterServer(&wg, host+":"+httpPort, "websocket")
+		go utils.RegisterServer(&wg, host, "websocket")
 	}
 	wg.Wait()
 	lis, err := net.Listen("tcp", ":"+port)
@@ -128,9 +129,21 @@ func main() {
 	if restErr != nil {
 		log.Fatalf(restErr.Error())
 	}
-	log.Printf("Started Websocket Server at port %s\n", httpPort)
 	logger := log.New(os.Stdout, "wsproxy: ", log.LstdFlags)
-	http.ListenAndServe(":"+httpPort, wsproxy.WebsocketProxy(mux, wsproxy.WithLogger(&WsLogger{logger})))
+	// log.Printf("Started Websocket Server at port %s\n", httpPort)
+	// http.ListenAndServe(":"+httpPort, wsproxy.WebsocketProxy(mux, wsproxy.WithLogger(&WsLogger{logger})))
+
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"}, // Replace * with your frontend domain for security
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	})
+
+	handler := corsHandler.Handler(wsproxy.WebsocketProxy(mux, wsproxy.WithLogger(&WsLogger{logger})))
+	log.Printf("Started Websocket Server at port %s\n", httpPort)
+	http.ListenAndServe(":"+httpPort, handler)
+
 }
 
 type WsLogger struct {
