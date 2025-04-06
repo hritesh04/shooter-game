@@ -62,7 +62,7 @@ func (s *Server) AddRoom(roomID string) error {
 			log.Printf("Error marshaling req %v", err)
 			return errors.New("error marshaling request")
 		}
-		req, err := http.NewRequest(http.MethodPost, "http://"+s.Address+"/v1/createRoom", bytes.NewReader(data))
+		req, err := http.NewRequest(http.MethodPost, "https://"+s.Address+"/v1/createRoom", bytes.NewReader(data))
 		if err != nil {
 			log.Println("error creating request", err)
 			return errors.New("error creating request")
@@ -121,7 +121,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/createRoom", func(w http.ResponseWriter, r *http.Request) {
 		enableCors(&w)
-		if r.Method != http.MethodGet {
+		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
@@ -150,7 +150,7 @@ func main() {
 			RoomID:  player.RoomID,
 		}
 		log.Printf("New room '%s' created at server: '%s'", response.RoomID, response.Address)
-		w.WriteHeader(http.StatusOK)
+		// w.WriteHeader(http.StatusOK)
 		writeJSON(w, response)
 	})
 	mux.HandleFunc("/joinRoom", func(w http.ResponseWriter, r *http.Request) {

@@ -250,7 +250,7 @@ func (o *Onboard) CreateRoom() func(string) error {
 		if err != nil {
 			return fmt.Errorf("data marshaling failed")
 		}
-		req, err := http.NewRequest(http.MethodGet, os.Getenv("ROOT_SERVER_URL")+"/createRoom", bytes.NewBuffer(out))
+		req, err := http.NewRequest(http.MethodPost, os.Getenv("ROOT_SERVER_URL")+"/createRoom", bytes.NewBuffer(out))
 		if err != nil {
 			return fmt.Errorf("error creating request")
 		}

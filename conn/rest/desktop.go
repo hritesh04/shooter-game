@@ -143,7 +143,7 @@ func (c *DesktopClient) JoinRoom(ID string) (*pb.Room, error) {
 		log.Println("Error marshaling req %v", err)
 		return nil, err
 	}
-	req, err := http.NewRequest(http.MethodPost, "http://"+c.address+"/v1/joinRoom", bytes.NewReader(data))
+	req, err := http.NewRequest(http.MethodPost, "https://"+c.address+"/v1/joinRoom", bytes.NewReader(data))
 	if err != nil {
 		log.Println("Error creating JoinRoom Http Request %v", err)
 		return nil, err
@@ -174,7 +174,7 @@ func (c *DesktopClient) JoinRoom(ID string) (*pb.Room, error) {
 }
 
 func (c *DesktopClient) createEventConn() {
-	conn, _, err := websocket.DefaultDialer.Dial("ws://"+c.address+"/v1/sendMove", nil)
+	conn, _, err := websocket.DefaultDialer.Dial("wss://"+c.address+"/v1/sendMove", nil)
 	if err != nil {
 		log.Println("Failed to connect to WebSocket server: %v", err)
 	}
